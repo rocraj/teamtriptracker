@@ -1,0 +1,92 @@
+<app-header title="Teams"></app-header>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Error Alert -->
+  <app-alert
+    *ngIf="error"
+    [message]="error"
+    [type]="'error'"
+    [visible]="!!error"
+  ></app-alert>
+
+  <!-- Loading State -->
+  <app-loading *ngIf="loading"></app-loading>
+
+  <!-- Main Content -->
+  <div *ngIf="!loading" class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <h1 class="text-3xl font-bold text-gray-900">Your Teams</h1>
+      <button
+        (click)="showCreateForm = !showCreateForm"
+        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+      >
+        ➕ New Team
+      </button>
+    </div>
+
+    <!-- Create Team Form -->
+    <div *ngIf="showCreateForm" class="bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Create New Team</h2>
+      <form (ngSubmit)="createTeam()" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Team Name</label>
+          <input
+            [(ngModel)]="newTeamName"
+            name="teamName"
+            type="text"
+            placeholder="e.g., Weekend Trip, Office Lunch"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+            (keyup.enter)="createTeam()"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+          >
+            Create Team
+          </button>
+          <button
+            type="button"
+            (click)="showCreateForm = false"
+            class="px-6 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition font-medium"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Teams Grid -->
+    <div *ngIf="teams.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div
+        *ngFor="let team of teams"
+        (click)="viewTeam(team.id)"
+        class="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition"
+      >
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ team.name }}</h3>
+        <p class="text-sm text-gray-600 mb-4">Created {{ team.created_at | date: 'short' }}</p>
+        <button
+          (click)="viewTeam(team.id); $event.stopPropagation()"
+          class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+        >
+          View Details
+        </button>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="teams.length === 0" class="bg-blue-50 border border-blue-200 rounded-lg p-12 text-center">
+      <div class="text-4xl mb-4">👥</div>
+      <h2 class="text-xl font-semibold text-gray-900 mb-2">No teams yet</h2>
+      <p class="text-gray-600 mb-6">Create your first team to start splitting expenses</p>
+      <button
+        (click)="showCreateForm = true"
+        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+      >
+        Create First Team
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,114 @@
+<app-header [title]="team?.name || 'Team Details'"></app-header>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Error Alert -->
+  <app-alert
+    *ngIf="error"
+    [message]="error"
+    [type]="'error'"
+    [visible]="!!error"
+  ></app-alert>
+
+  <!-- Loading State -->
+  <app-loading *ngIf="loading"></app-loading>
+
+  <!-- Main Content -->
+  <div *ngIf="!loading && team" class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">{{ team.name }}</h1>
+        <p class="text-sm text-gray-600 mt-1">{{ members.length }} members</p>
+      </div>
+      <div class="flex gap-2">
+        <button
+          (click)="openInviteModal()"
+          class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium"
+        >
+          ✉️ Invite Members
+        </button>
+        <button
+          (click)="addExpense()"
+          class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+        >
+          💸 Add Expense
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="border-b border-gray-200">
+      <div class="flex space-x-8">
+        <button
+          (click)="activeTab = 'expenses'"
+          [class]="'py-2 px-1 border-b-2 font-medium text-sm ' + (activeTab === 'expenses' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900')"
+        >
+          Expenses
+        </button>
+        <button
+          (click)="activeTab = 'balances'"
+          [class]="'py-2 px-1 border-b-2 font-medium text-sm ' + (activeTab === 'balances' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900')"
+        >
+          Balances
+        </button>
+        <button
+          (click)="activeTab = 'settlements'"
+          [class]="'py-2 px-1 border-b-2 font-medium text-sm ' + (activeTab === 'settlements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900')"
+        >
+          Settlements
+        </button>
+      </div>
+    </div>
+
+    <!-- Expenses Tab -->
+    <div *ngIf="activeTab === 'expenses'" class="space-y-4">
+      <h2 class="text-xl font-semibold text-gray-900">Recent Expenses</h2>
+      <div *ngIf="expenses.length > 0" class="space-y-3">
+        <app-expense-card
+          *ngFor="let expense of expenses"
+          [expense]="expense"
+        ></app-expense-card>
+      </div>
+      <div *ngIf="expenses.length === 0" class="bg-gray-50 rounded-lg p-8 text-center">
+        <p class="text-gray-600">No expenses yet. Add one to get started!</p>
+      </div>
+    </div>
+
+    <!-- Balances Tab -->
+    <div *ngIf="activeTab === 'balances'" class="space-y-4">
+      <h2 class="text-xl font-semibold text-gray-900">Member Balances</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div *ngFor="let member of members" class="bg-white rounded-lg shadow-md p-6">
+          <p class="text-gray-600 font-medium mb-2">{{ member.user_id }}</p>
+          <p [class]="'text-2xl font-bold ' + ((balances?.balances?.[member.user_id] || 0) >= 0 ? 'text-green-600' : 'text-red-600')">
+            {{ (balances?.balances?.[member.user_id] || 0) >= 0 ? '+' : '' }}{{ '$' }}{{ Math.abs(balances?.balances?.[member.user_id] || 0) | number:'1.2-2' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settlements Tab -->
+    <div *ngIf="activeTab === 'settlements'" class="space-y-4">
+      <h2 class="text-xl font-semibold text-gray-900">Settlement Plan</h2>
+      <div *ngIf="settlements.length > 0" class="space-y-3">
+        <div *ngFor="let settlement of settlements" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p class="text-blue-900 font-medium">
+            {{ settlement.from_user.substring(0, 8) }}... owes {{ settlement.to_user.substring(0, 8) }}...
+            <span class="font-bold text-lg">{{ '$' }}{{ settlement.amount | number:'1.2-2' }}</span>
+          </p>
+        </div>
+      </div>
+      <div *ngIf="settlements.length === 0" class="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+        <p class="text-green-900 font-medium">✅ All settled up!</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Members Modal -->
+<app-invite-members-modal
+  [isOpen]="showInviteModal"
+  [teamId]="teamId"
+  (close)="closeInviteModal()"
+  (membersInvited)="onMembersInvited()"
+></app-invite-members-modal>

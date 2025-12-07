@@ -1,48 +1,17 @@
-# Dependencies
-node_modules/
-__pycache__/
-*.pyc
-venv/
-env/
-.venv
-.env
-.env.local
-.env.*.local
-
-# IDEs
+# IDE & Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
 *.iml
+*.sublime-project
+*.sublime-workspace
 
-# Frontend (Angular)
-frontend/dist/
-frontend/build/
-frontend/.angular/
-frontend/node_modules/
-frontend/npm-debug.log
-frontend/yarn-error.log
-
-# Backend (Python)
-backend/venv/
-backend/.env
-backend/__pycache__/
-backend/*.pyc
-backend/instance/
-backend/.pytest_cache/
-backend/.coverage
-backend/htmlcov/
-backend/*.egg-info/
-backend/dist/
-backend/build/
-backend/teamsplit.db
-backend/*.sqlite
-
-# Docker
-.dockerignore
+# OS Files
+.DS_Store
+Thumbs.db
+.env
 
 # Logs
 *.log
@@ -53,20 +22,3 @@ logs/
 *.temp
 *.bak
 *.orig
-
-# OS specific
-.DS_Store
-Thumbs.db
-
-# IDE temporary files
-*.sublime-project
-*.sublime-workspace
-
-# Git
-.git/
-
-# Documentation (optional - comment out if you want to track)
-# *.md - Keeping documentation tracked
-
-# Misc
-.env.example

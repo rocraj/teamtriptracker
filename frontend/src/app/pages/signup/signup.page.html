@@ -1,0 +1,125 @@
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    <!-- Logo & Title -->
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-4">💰</div>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">TeamSplit</h1>
+      <p class="text-gray-600">Create your free account</p>
+    </div>
+
+    <!-- Invitation Info Banner -->
+    <div *ngIf="invitationInfo && !invitationError" class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+      <p class="text-sm text-blue-900">
+        <span class="font-bold">📬 Team Invitation</span><br />
+        <span class="text-xs text-blue-700">
+          {{ invitationInfo.inviter_name }} invited you to join <strong>{{ invitationInfo.team_name }}</strong>
+        </span>
+      </p>
+    </div>
+
+    <!-- Invitation Error -->
+    <app-alert
+      *ngIf="invitationError"
+      [message]="invitationError"
+      [type]="'error'"
+      [visible]="!!invitationError"
+    ></app-alert>
+
+    <!-- Signup Card -->
+    <div class="bg-white rounded-lg shadow-lg p-6 sm:p-8">
+      <form (ngSubmit)="signup()" class="space-y-4">
+        <!-- Name Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+          <input
+            [(ngModel)]="name"
+            name="name"
+            type="text"
+            placeholder="John Doe"
+            [disabled]="loading"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <!-- Email Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Email Address
+            <span *ngIf="invitationInfo" class="text-xs text-gray-500 ml-1">(from invitation)</span>
+          </label>
+          <input
+            [(ngModel)]="email"
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            [disabled]="loading"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <!-- Password Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+          <input
+            [(ngModel)]="password"
+            name="password"
+            type="password"
+            placeholder="••••••••"
+            [disabled]="loading"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+          <p class="text-xs text-gray-500 mt-1">Min 6 characters</p>
+        </div>
+
+        <!-- Confirm Password Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+          <input
+            [(ngModel)]="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            [disabled]="loading"
+            (keyup.enter)="signup()"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <!-- Error Alert -->
+        <app-alert
+          *ngIf="error"
+          [message]="error"
+          [type]="'error'"
+          [visible]="!!error"
+        ></app-alert>
+
+        <!-- Success Alert -->
+        <app-alert
+          *ngIf="success"
+          [message]="success"
+          [type]="'success'"
+          [visible]="!!success"
+        ></app-alert>
+
+        <!-- Signup Button -->
+        <button
+          type="submit"
+          [disabled]="loading"
+          class="w-full px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-200"
+        >
+          <span *ngIf="!loading">
+            <span *ngIf="invitationInfo">✨ Create Account & Join Team</span>
+            <span *ngIf="!invitationInfo">✨ Create Account</span>
+          </span>
+          <span *ngIf="loading">⟳ {{ invitationInfo ? 'Joining team...' : 'Creating account...' }}</span>
+        </button>
+      </form>
+
+      <!-- Login Link -->
+      <p class="text-center text-gray-600 text-sm mt-6">
+        Already have an account?
+        <a routerLink="/login" class="text-blue-600 hover:underline font-semibold">Sign in</a>
+      </p>
+    </div>
+  </div>
+</div>
