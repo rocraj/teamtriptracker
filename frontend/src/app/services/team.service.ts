@@ -5,6 +5,18 @@ import { environment } from '../../environments/environment';
 import { Team, TeamMember } from '../models/index';
 import { AuthService } from './auth.service';
 
+export interface SendInvitationsRequest {
+  emails: string[];
+}
+
+export interface BulkInvitationResult {
+  team_id: string;
+  invited_emails: string[];
+  added_existing_users: string[];
+  failed_emails: string[];
+  total_invitations_sent: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -69,6 +81,25 @@ export class TeamService {
       this.api.post(`/teams/${teamId}/invite?email=${encodeURIComponent(email)}`, {}, {
         headers: this.getHeaders()
       })
+      .then(response => {
+        observer.next(response.data);
+        observer.complete();
+      })
+      .catch(error => observer.error(error));
+    });
+  }
+
+  /**
+   * Send bulk invitation emails to multiple users
+   * Creates invitations for new users, adds existing users directly to team
+   */
+  sendBulkInvitations(teamId: string, emails: string[]): Observable<BulkInvitationResult> {
+    return new Observable(observer => {
+      this.api.post<BulkInvitationResult>(
+        `/teams/${teamId}/send-invites`,
+        { emails } as SendInvitationsRequest,
+        { headers: this.getHeaders() }
+      )
       .then(response => {
         observer.next(response.data);
         observer.complete();
