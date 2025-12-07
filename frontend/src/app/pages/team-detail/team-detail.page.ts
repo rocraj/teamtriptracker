@@ -27,6 +27,7 @@ export class TeamDetailPageComponent implements OnInit {
   currentUserId: string = '';
   editTeamName: string = '';
   editTeamBudget: number | null = null;
+  deleteConfirmationName: string = '';
   Math = Math;
 
   constructor(
@@ -139,11 +140,17 @@ export class TeamDetailPageComponent implements OnInit {
 
   closeDeleteModal(): void {
     this.showDeleteModal = false;
+    this.deleteConfirmationName = '';
   }
 
   confirmDelete(): void {
     if (!this.isTeamCreator()) {
       this.error = 'Only the team creator can delete this team';
+      return;
+    }
+
+    if (this.deleteConfirmationName !== this.team.name) {
+      this.error = `Team name must match exactly to delete`;
       return;
     }
 
