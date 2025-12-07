@@ -25,23 +25,16 @@ export class ExpenseService {
     };
   }
 
-  createExpense(
-    teamId: string,
-    totalAmount: number,
-    participants: string[],
-    typeLabel: string = 'Other',
-    typeEmoji: string = '💰',
-    note?: string
-  ): Observable<Expense> {
+  createExpense(expenseData: {
+    team_id: string;
+    total_amount: number;
+    participants: string[];
+    category_id?: string;
+    team_category_id?: string;
+    note?: string;
+  }): Observable<Expense> {
     return new Observable(observer => {
-      this.api.post<Expense>('/expenses', {
-        team_id: teamId,
-        total_amount: totalAmount,
-        participants,
-        type_label: typeLabel,
-        type_emoji: typeEmoji,
-        note
-      }, {
+      this.api.post<Expense>('/expenses', expenseData, {
         headers: this.getHeaders()
       })
       .then(response => {

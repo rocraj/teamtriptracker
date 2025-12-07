@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.database import create_db_and_tables
-from app.api import auth, teams, expenses, summary
+from app.core.database import create_db_and_tables, get_session
+from app.services.category import ExpenseCategoryService
+from app.api import auth, teams, expenses, summary, categories
 
 # Initialize settings
 settings = get_settings()
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(teams.router)
 app.include_router(expenses.router)
+app.include_router(categories.router)
 app.include_router(summary.router)
 
 
@@ -36,6 +38,14 @@ app.include_router(summary.router)
 async def on_startup():
     """Initialize database on startup."""
     create_db_and_tables()
+    
+    # Initialize default categories
+    try:
+        session = next(get_session())
+        ExpenseCategoryService.create_default_categories(session)
+        session.close()
+    except Exception as e:
+        print(f"Warning: Could not initialize default categories: {e}")
 
 
 @app.get("/")

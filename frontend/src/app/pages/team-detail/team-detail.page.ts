@@ -5,6 +5,8 @@ import { ExpenseService } from '../../services/expense.service';
 import { SummaryService } from '../../services/summary.service';
 import { AuthService } from '../../services/auth.service';
 import { getErrorMessage } from '../../utils/validation';
+import { Expense } from '../../models/index';
+import { ExpenseDrawerComponent } from '../../components/expense-drawer/expense-drawer.component';
 
 @Component({
   selector: 'app-team-detail-page',
@@ -24,10 +26,14 @@ export class TeamDetailPageComponent implements OnInit {
   showInviteModal: boolean = false;
   showDeleteModal: boolean = false;
   showEditModal: boolean = false;
+  showDeleteExpenseModal: boolean = false;
+  showExpenseDrawer: boolean = false;
+  editingExpense: Expense | null = null;
   currentUserId: string = '';
   editTeamName: string = '';
   editTeamBudget: number | null = null;
   deleteConfirmationName: string = '';
+  selectedExpense: any = null;
   Math = Math;
 
   constructor(
@@ -112,11 +118,15 @@ export class TeamDetailPageComponent implements OnInit {
   }
 
   addExpense(): void {
-    this.router.navigate(['/teams', this.teamId, 'add-expense']);
+    if (this.isTeamMember()) {
+      this.router.navigate(['/teams', this.teamId, 'add-expense']);
+    }
   }
 
   openInviteModal(): void {
-    this.showInviteModal = true;
+    if (this.isTeamMember()) {
+      this.showInviteModal = true;
+    }
   }
 
   closeInviteModal(): void {
@@ -130,6 +140,43 @@ export class TeamDetailPageComponent implements OnInit {
 
   isTeamCreator(): boolean {
     return this.team && this.currentUserId && this.team.created_by === this.currentUserId;
+  }
+
+  isTeamMember(): boolean {
+    return !!(this.currentUserId && this.members.some(member => member.user_id === this.currentUserId));
+  }
+
+  openAddExpenseDrawer() {
+    this.editingExpense = null;
+    this.showExpenseDrawer = true;
+  }
+
+  openEditExpenseDrawer(expense: Expense) {
+    this.editingExpense = expense;
+    this.showExpenseDrawer = true;
+  }
+
+  closeExpenseDrawer() {
+    this.showExpenseDrawer = false;
+    this.editingExpense = null;
+  }
+
+  onExpenseCreated(expense: any) {
+    // Refresh the expenses list
+    this.loadExpenses();
+  }
+
+  onExpenseUpdated(expense: any) {
+    // Refresh the expenses list
+    this.loadExpenses();
+  }
+
+  canDeleteExpense(expense: any): boolean {
+    // Only expense payer or team creator can delete expenses
+    return !!(this.currentUserId && (
+      expense.payer_id === this.currentUserId || 
+      this.isTeamCreator()
+    ));
   }
 
   openDeleteModal(): void {
@@ -171,7 +218,7 @@ export class TeamDetailPageComponent implements OnInit {
   }
 
   openEditModal(): void {
-    if (this.isTeamCreator()) {
+    if (this.isTeamMember()) {
       this.editTeamName = this.team.name;
       this.editTeamBudget = this.team.trip_budget || null;
       this.showEditModal = true;
@@ -200,6 +247,40 @@ export class TeamDetailPageComponent implements OnInit {
       (error) => {
         this.loading = false;
         this.error = getErrorMessage(error);
+      }
+    );
+  }
+
+  // Expense delete methods
+  openDeleteExpenseModal(expense: any): void {
+    if (this.canDeleteExpense(expense)) {
+      this.selectedExpense = expense;
+      this.showDeleteExpenseModal = true;
+    }
+  }
+
+  closeDeleteExpenseModal(): void {
+    this.showDeleteExpenseModal = false;
+    this.selectedExpense = null;
+  }
+
+  confirmDeleteExpense(): void {
+    if (!this.selectedExpense) return;
+
+    this.loading = true;
+    this.error = '';
+
+    this.expenseService.deleteExpense(this.selectedExpense.id).subscribe(
+      () => {
+        this.loading = false;
+        this.loadExpenses(); // Reload expenses
+        this.loadSummaries(); // Reload balances and settlements
+        this.closeDeleteExpenseModal();
+      },
+      (error) => {
+        this.loading = false;
+        this.error = getErrorMessage(error);
+        this.closeDeleteExpenseModal();
       }
     );
   }

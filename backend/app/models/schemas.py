@@ -48,6 +48,29 @@ class TeamMember(SQLModel, table=True):
     modified_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ExpenseCategory(SQLModel, table=True):
+    """Global expense categories available to all teams."""
+    
+    id: Optional[UUID] = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True)  # travel, food, entertainment, etc.
+    emoji: str = Field(default="💰")
+    is_default: bool = Field(default=False)  # True for system defaults
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TeamCustomCategory(SQLModel, table=True):
+    """Team-specific custom expense categories."""
+    
+    id: Optional[UUID] = Field(default=None, primary_key=True)
+    team_id: UUID = Field(foreign_key="team.id", index=True)
+    name: str = Field(index=True)
+    emoji: str = Field(default="💰")
+    created_by: UUID = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Expense(SQLModel, table=True):
     """Expense model for tracking payments."""
     
@@ -56,8 +79,8 @@ class Expense(SQLModel, table=True):
     payer_id: UUID = Field(foreign_key="user.id")
     total_amount: float
     participants: str = Field(default="[]")  # JSON string of UUIDs
-    type_label: str = "Other"
-    type_emoji: str = "💰"
+    category_id: Optional[UUID] = Field(default=None, foreign_key="expensecategory.id")
+    team_category_id: Optional[UUID] = Field(default=None, foreign_key="teamcustomcategory.id")
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
@@ -88,6 +111,7 @@ class UserCreate(UserBase):
     """User creation schema."""
     password: Optional[str] = None
     auth_provider: AuthProvider = AuthProvider.EMAIL
+    invitation_token: Optional[str] = None  # Optional invitation token for auto-joining teams
 
 
 class UserLogin(SQLModel):
@@ -140,12 +164,46 @@ class TeamMemberResponse(SQLModel):
     modified_at: datetime
 
 
+class ExpenseCategoryBase(SQLModel):
+    """Base expense category schema."""
+    name: str
+    emoji: str = "💰"
+
+
+class ExpenseCategoryResponse(ExpenseCategoryBase):
+    """Expense category response schema."""
+    id: UUID
+    is_default: bool
+    created_at: datetime
+    modified_at: datetime
+
+
+class TeamCustomCategoryBase(SQLModel):
+    """Base team custom category schema."""
+    name: str
+    emoji: str = "💰"
+
+
+class TeamCustomCategoryCreate(TeamCustomCategoryBase):
+    """Team custom category creation schema."""
+    team_id: UUID
+
+
+class TeamCustomCategoryResponse(TeamCustomCategoryBase):
+    """Team custom category response schema."""
+    id: UUID
+    team_id: UUID
+    created_by: UUID
+    created_at: datetime
+    modified_at: datetime
+
+
 class ExpenseBase(SQLModel):
     """Base expense schema."""
     total_amount: float
     participants: List[UUID]
-    type_label: str = "Other"
-    type_emoji: str = "💰"
+    category_id: Optional[UUID] = None
+    team_category_id: Optional[UUID] = None
     note: Optional[str] = None
 
 
@@ -161,6 +219,9 @@ class ExpenseResponse(ExpenseBase):
     payer_id: UUID
     created_at: datetime
     modified_at: datetime
+    # Include category details in response
+    category: Optional[ExpenseCategoryResponse] = None
+    team_category: Optional[TeamCustomCategoryResponse] = None
 
     @field_validator('participants', mode='before')
     @classmethod
@@ -178,6 +239,7 @@ class TokenResponse(SQLModel):
     """Token response schema."""
     access_token: str
     token_type: str = "bearer"
+    team_id: Optional[str] = None  # Set if user joined a team via invitation during signup
 
 
 class MagicLinkRequest(SQLModel):

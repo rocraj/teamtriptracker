@@ -30,8 +30,14 @@ export class LoginPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Check if there's an invitation token in query params
+    // Check if there's an invitation token or email in query params
     this.route.queryParams.subscribe(params => {
+      // Prefill email if provided (from invite-accept page or signup)
+      if (params['email']) {
+        this.email = params['email'];
+      }
+
+      // Load invitation if token provided
       if (params['invite']) {
         this.invitationToken = params['invite'];
         this.loadInvitationInfo();
@@ -48,8 +54,8 @@ export class LoginPageComponent implements OnInit {
     this.invitationService.getInvitationInfo(this.invitationToken).subscribe(
       (info) => {
         this.invitationInfo = info;
-        // Pre-fill email with invitee email
-        if (info.invitee_email) {
+        // Pre-fill email with invitee email only if not already set from query params
+        if (info.invitee_email && !this.email) {
           this.email = info.invitee_email;
         }
         this.invitationLoading = false;

@@ -33,6 +33,7 @@ import { SelectFieldComponent } from './components/form/select-field.component';
 // Import card components
 import { TeamCardComponent } from './components/cards/team-card.component';
 import { ExpenseCardComponent } from './components/cards/expense-card.component';
+import { ExpenseDrawerComponent } from './components/expense-drawer/expense-drawer.component';
 
 @NgModule({
   declarations: [
@@ -67,7 +68,8 @@ import { ExpenseCardComponent } from './components/cards/expense-card.component'
     FormsModule,
     ReactiveFormsModule,
     HttpClientModule,
-    CommonModule
+    CommonModule,
+    ExpenseDrawerComponent
   ],
   providers: [],
   bootstrap: [AppComponent]

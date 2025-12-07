@@ -20,38 +20,44 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse)
 def register(
     user_data: UserCreate,
-    session: Session = Depends(get_session),
-    invitation_token: Optional[str] = None
+    session: Session = Depends(get_session)
 ):
     """Register a new user with email and password.
     
-    Optionally accepts an invitation_token to auto-join a team.
+    Optionally accepts an invitation_token in the request body to auto-join a team.
     If token is provided and valid, user is added to the team after registration.
     """
     try:
         user = AuthService.create_user(session, user_data)
         token = AuthService.generate_token(str(user.id))
         
-        # If invitation token provided, validate and add user to team
+        team_id = None
+        
+        # If invitation token provided in user_data, validate and add user to team
+        invitation_token = user_data.invitation_token if hasattr(user_data, 'invitation_token') else None
         if invitation_token:
             payload = InvitationService.validate_invitation_token(invitation_token)
             if payload:
                 invitee_email = payload.get("invitee_email")
-                team_id = payload.get("team_id")
+                team_id_str = payload.get("team_id")
                 invitation_id = payload.get("sub")
                 
                 # Verify email matches
                 if invitee_email == user_data.email:
                     try:
                         # Add user to team
-                        TeamService.add_team_member(session, team_id, str(user.id))
+                        TeamService.add_team_member(session, team_id_str, str(user.id))
                         # Mark invitation as used
                         InvitationService.mark_invitation_as_used(session, invitation_id)
+                        team_id = team_id_str
                     except Exception as e:
                         # Log error but don't fail the registration
                         print(f"Error adding user to team: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
+                        team_id = None
         
-        return TokenResponse(access_token=token)
+        return TokenResponse(access_token=token, team_id=team_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

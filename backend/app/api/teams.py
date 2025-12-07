@@ -81,7 +81,7 @@ def update_team(
     session: Session = Depends(get_session),
     user_id: str = Depends(get_current_user_id)
 ):
-    """Update team name and/or budget. Only the team creator can update."""
+    """Update team name and/or budget. Any team member can update."""
     try:
         team = TeamService.update_team(
             session, 

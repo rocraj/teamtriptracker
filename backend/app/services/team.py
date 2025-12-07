@@ -144,7 +144,7 @@ class TeamService:
         name: Optional[str] = None,
         trip_budget: Optional[float] = None
     ) -> Team:
-        """Update team details. Only the creator can update the team."""
+        """Update team details. Any team member can update the team."""
         # Ensure IDs are UUIDs
         if isinstance(team_id, str):
             team_id = UUID(team_id)
@@ -159,9 +159,16 @@ class TeamService:
         if not team:
             raise ValueError("Team not found")
         
-        # Check if user is the creator
-        if team.created_by != user_id:
-            raise PermissionError("Only the team creator can update the team")
+        # Check if user is a team member
+        member = session.exec(
+            select(TeamMember).where(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id == user_id
+            )
+        ).first()
+        
+        if not member:
+            raise PermissionError("You must be a team member to update the team")
         
         # Update fields
         if name is not None:

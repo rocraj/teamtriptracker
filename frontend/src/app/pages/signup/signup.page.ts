@@ -32,8 +32,14 @@ export class SignupPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Check if there's an invitation token in query params
+    // Check if there's an invitation token or email in query params
     this.route.queryParams.subscribe(params => {
+      // Prefill email if provided (from invite-accept page)
+      if (params['email']) {
+        this.email = params['email'];
+      }
+
+      // Load invitation if token provided
       if (params['invite']) {
         this.invitationToken = params['invite'];
         this.loadInvitationInfo();
@@ -50,8 +56,8 @@ export class SignupPageComponent implements OnInit {
     this.invitationService.getInvitationInfo(this.invitationToken).subscribe(
       (info) => {
         this.invitationInfo = info;
-        // Pre-fill email with invitee email
-        if (info.invitee_email) {
+        // Pre-fill email with invitee email only if not already set from query params
+        if (info.invitee_email && !this.email) {
           this.email = info.invitee_email;
         }
         this.invitationLoading = false;
@@ -88,11 +94,23 @@ export class SignupPageComponent implements OnInit {
     this.error = '';
     this.success = '';
 
-    this.authService.register(this.email, this.name, this.password).subscribe(
-      () => {
-        // If there's an invitation, accept it
+    // Pass invitation token to registration if available
+    this.authService.register(this.email, this.name, this.password, this.invitationToken || undefined).subscribe(
+      (response) => {
+        // Registration successful
         if (this.invitationToken) {
-          this.acceptInvitation();
+          // Invitation was auto-accepted during registration
+          this.success = `✅ Welcome! You've joined ${this.invitationInfo?.team_name || 'the team'}`;
+          this.loading = false;
+          setTimeout(() => {
+            // Redirect to the team
+            if (response && typeof response === 'object' && 'team_id' in response) {
+              this.router.navigate(['/teams', (response as any).team_id]);
+            } else {
+              // Fallback to dashboard if team_id not in response
+              this.router.navigate(['/dashboard']);
+            }
+          }, 1500);
         } else {
           this.router.navigate(['/dashboard']);
         }

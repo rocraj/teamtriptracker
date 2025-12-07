@@ -16,6 +16,7 @@ const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
   { path: 'signup', component: SignupPageComponent },
   { path: 'invite/:token', component: InviteAcceptPageComponent },
+  { path: 'accept-invite/:token', component: InviteAcceptPageComponent },
   {
     path: 'dashboard',
     component: DashboardPageComponent,

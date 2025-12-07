@@ -32,14 +32,21 @@ export class AuthService {
     }
   }
 
-  register(email: string, name: string, password: string): Observable<TokenResponse> {
+  register(email: string, name: string, password: string, invitationToken?: string): Observable<TokenResponse> {
     return new Observable(observer => {
-      this.api.post<TokenResponse>('/auth/register', {
+      const payload: any = {
         email,
         name,
         password,
         auth_provider: 'email'
-      })
+      };
+
+      // Add invitation token if provided
+      if (invitationToken) {
+        payload.invitation_token = invitationToken;
+      }
+
+      this.api.post<TokenResponse>('/auth/register', payload)
       .then(response => {
         this.setToken(response.data.access_token);
         observer.next(response.data);
@@ -134,5 +141,21 @@ export class AuthService {
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  }
+
+  /**
+   * Get the email of the currently authenticated user
+   * Returns null if no user is authenticated
+   */
+  getCurrentUserEmail(): string | null {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.email || null;
+  }
+
+  /**
+   * Get the current user object
+   */
+  getCurrentUser(): User | null {
+    return this.currentUserSubject.value;
   }
 }

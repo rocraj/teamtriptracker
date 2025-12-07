@@ -1,5 +1,3 @@
-<app-header [title]="team?.name || 'Team Details'"></app-header>
-
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
   <!-- Error Alert -->
   <app-alert
@@ -22,33 +20,36 @@
         <p *ngIf="team.trip_budget" class="text-sm text-gray-600 mt-1">Budget: ${{ team.trip_budget | number:'1.2-2' }}</p>
       </div>
       <div class="flex gap-2 flex-wrap items-center">
-        <button
-          (click)="openInviteModal()"
-          class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium"
-        >
-          ✉️ Invite Members
-        </button>
-        <button
-          (click)="addExpense()"
-          class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
-        >
-          💸 Add Expense
-        </button>
-        <!-- Icon buttons for team creator only -->
-        <div *ngIf="isTeamCreator()" class="flex gap-1 ml-2">
+        <!-- Actions for all team members -->
+        <div *ngIf="isTeamMember()" class="flex gap-2">
           <button
-            (click)="openEditModal()"
-            title="Edit team"
-            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+            (click)="openInviteModal()"
+            class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium"
           >
-            ✏️
+            ✉️ Invite Members
           </button>
           <button
-            (click)="openDeleteModal()"
-            title="Delete team"
-            class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+            (click)="addExpense()"
+            class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
           >
-            🗑️
+            💸 Add Expense
+          </button>
+        </div>
+        <!-- Action buttons for team members -->
+        <div *ngIf="isTeamMember()" class="flex gap-2 ml-2">
+          <button
+            (click)="openEditModal()"
+            class="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
+          >
+            ✏️ Edit Team
+          </button>
+          <!-- Delete button only for team creator -->
+          <button
+            *ngIf="isTeamCreator()"
+            (click)="openDeleteModal()"
+            class="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 flex items-center gap-2"
+          >
+            🗑️ Delete
           </button>
         </div>
       </div>
@@ -80,15 +81,34 @@
 
     <!-- Expenses Tab -->
     <div *ngIf="activeTab === 'expenses'" class="space-y-4">
-      <h2 class="text-xl font-semibold text-gray-900">Recent Expenses</h2>
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-gray-900">Recent Expenses</h2>
+        <button
+          (click)="openAddExpenseDrawer()"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          <span>Add Expense</span>
+        </button>
+      </div>
       <div *ngIf="expenses.length > 0" class="space-y-3">
         <app-expense-card
           *ngFor="let expense of expenses"
           [expense]="expense"
+          [showEditButton]="true"
+          [showDeleteButton]="canDeleteExpense(expense)"
+          (edit)="openEditExpenseDrawer($event)"
+          (delete)="openDeleteExpenseModal($event)"
         ></app-expense-card>
       </div>
       <div *ngIf="expenses.length === 0" class="bg-gray-50 rounded-lg p-8 text-center">
-        <p class="text-gray-600">No expenses yet. Add one to get started!</p>
+        <p class="text-gray-600 mb-4">No expenses yet. Add one to get started!</p>
+        <button
+          (click)="openAddExpenseDrawer()"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+          Add Your First Expense
+        </button>
       </div>
     </div>
 
@@ -246,3 +266,49 @@
     </div>
   </div>
 </div>
+
+<!-- Delete Expense Confirmation Modal -->
+<div *ngIf="showDeleteExpenseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" (click)="closeDeleteExpenseModal()">
+  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4" (click)="$event.stopPropagation()">
+    <div class="mb-6">
+      <h2 class="text-xl font-semibold text-gray-900">Delete Expense</h2>
+    </div>
+
+    <div class="mb-6">
+      <p class="text-gray-700">Are you sure you want to delete this expense?</p>
+      <div *ngIf="selectedExpense" class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <p class="font-medium">{{ selectedExpense.type_emoji }} {{ selectedExpense.type_label }}</p>
+        <p class="text-sm text-gray-600">{{ '$' }}{{ selectedExpense.total_amount | number:'1.2-2' }}</p>
+        <p class="text-sm text-gray-600" *ngIf="selectedExpense.note">{{ selectedExpense.note }}</p>
+      </div>
+      <p class="text-sm text-red-600 mt-2">⚠️ This action cannot be undone and will recalculate team balances.</p>
+    </div>
+
+    <div class="flex gap-3">
+      <button
+        (click)="closeDeleteExpenseModal()"
+        class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="confirmDeleteExpense()"
+        [disabled]="loading"
+        class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        <span *ngIf="!loading">Delete Expense</span>
+        <span *ngIf="loading">Deleting...</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Expense Drawer -->
+<app-expense-drawer
+  [isOpen]="showExpenseDrawer"
+  [teamId]="teamId"
+  [expense]="editingExpense"
+  (close)="closeExpenseDrawer()"
+  (expenseCreated)="onExpenseCreated($event)"
+  (expenseUpdated)="onExpenseUpdated($event)"
+></app-expense-drawer>

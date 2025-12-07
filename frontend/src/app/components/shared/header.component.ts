@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
@@ -8,7 +8,6 @@ import { AuthService } from '../../services/auth.service';
   styleUrls: ['./header.component.css']
 })
 export class HeaderComponent {
-  @Input() title: string = 'TeamSplit';
   isMenuOpen: boolean = false;
   currentUser$ = this.authService.currentUser$;
 
@@ -16,6 +15,10 @@ export class HeaderComponent {
     private authService: AuthService,
     private router: Router
   ) {}
+
+  isActiveRoute(route: string): boolean {
+    return this.router.url.startsWith(route);
+  }
 
   toggleMenu(): void {
     this.isMenuOpen = !this.isMenuOpen;

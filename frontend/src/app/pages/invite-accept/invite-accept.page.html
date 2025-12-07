@@ -3,7 +3,7 @@
     <!-- Loading State -->
     <div *ngIf="loading" class="bg-white rounded-lg shadow-lg p-8 text-center">
       <div class="animate-spin text-5xl mb-4">⟳</div>
-      <p class="text-gray-600">Loading invitation...</p>
+      <p class="text-gray-600">Validating invitation...</p>
     </div>
 
     <!-- Error State -->
@@ -46,10 +46,13 @@
             <p class="text-sm text-gray-500">{{ invitationInfo.inviter_email }}</p>
           </div>
 
-          <!-- Invitee Info -->
-          <div class="bg-gray-50 rounded-lg p-4">
-            <p class="text-sm text-gray-600 mb-1">Invitation sent to</p>
-            <p class="text-lg font-semibold text-gray-900">{{ invitationInfo.invitee_email }}</p>
+          <!-- Invitee Email - Prefilled Info -->
+          <div class="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4">
+            <p class="text-sm text-gray-600 mb-1">📧 Invitation sent to</p>
+            <p class="text-lg font-semibold text-gray-900 break-all">{{ inviteeEmail }}</p>
+            <p class="text-xs text-amber-700 mt-2">
+              ℹ️ Use this email to sign up or log in to accept the invitation
+            </p>
           </div>
 
           <!-- Expiry Info -->
@@ -57,7 +60,7 @@
             <p class="text-xs text-gray-500">
               Invitation sent {{ invitationInfo.created_at | date: 'medium' }}<br />
               <span [class]="invitationInfo.is_expired ? 'text-red-600 font-bold' : 'text-green-600'">
-                <span *ngIf="!invitationInfo.is_expired">✓ Expires {{ invitationInfo.expires_at | date: 'medium' }}</span>
+                <span *ngIf="!invitationInfo.is_expired">✓ Expires in {{ getTimeUntilExpiry() }}</span>
                 <span *ngIf="invitationInfo.is_expired">✗ This invitation has expired</span>
               </span>
             </p>
@@ -71,10 +74,76 @@
             [visible]="!!error"
           ></app-alert>
 
+          <!-- Email Mismatch Alert - Show when authenticated with different email -->
+          <div
+            *ngIf="isAuthenticated && !emailMatches() && !showEmailConfirmation"
+            class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4"
+          >
+            <div class="flex gap-2">
+              <span class="text-2xl">⚠️</span>
+              <div>
+                <p class="text-sm font-semibold text-yellow-900 mb-2">
+                  Email mismatch detected
+                </p>
+                <p class="text-xs text-yellow-700 mb-3">
+                  You're signed in as <strong>{{ currentUserEmail }}</strong>, but this invitation is for
+                  <strong>{{ inviteeEmail }}</strong>
+                </p>
+                <div class="flex gap-2">
+                  <button
+                    (click)="confirmEmailMismatch()"
+                    class="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition font-medium"
+                  >
+                    Continue anyway
+                  </button>
+                  <button
+                    (click)="switchAccount()"
+                    class="text-xs px-3 py-1 border border-yellow-600 text-yellow-700 rounded hover:bg-yellow-50 transition font-medium"
+                  >
+                    Switch account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email Confirmation Dialog -->
+          <div
+            *ngIf="showEmailConfirmation && isAuthenticated && !emailMatches()"
+            class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4"
+          >
+            <div class="space-y-3">
+              <p class="text-sm font-semibold text-yellow-900">
+                Confirm email switch
+              </p>
+              <p class="text-xs text-yellow-700">
+                This will add <strong>{{ inviteeEmail }}</strong> to the team from your
+                <strong>{{ currentUserEmail }}</strong> account.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  (click)="confirmEmailMismatch()"
+                  [disabled]="accepting"
+                  class="flex-1 px-3 py-2 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+                >
+                  {{ accepting ? '⟳ Accepting...' : 'Confirm' }}
+                </button>
+                <button
+                  (click)="switchAccount()"
+                  [disabled]="accepting"
+                  class="flex-1 px-3 py-2 border border-yellow-600 text-yellow-700 text-sm rounded hover:bg-yellow-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition font-medium"
+                >
+                  Switch account
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Action Buttons -->
           <div class="border-t pt-4 space-y-3">
+            <!-- If Authenticated and Email Matches -->
             <button
-              *ngIf="isAuthenticated"
+              *ngIf="isAuthenticated && emailMatches()"
               (click)="acceptInvitation()"
               [disabled]="accepting || invitationInfo.is_expired"
               class="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium flex items-center justify-center gap-2"
@@ -83,24 +152,45 @@
               <span *ngIf="accepting">⟳ Accepting...</span>
             </button>
 
+            <!-- If Authenticated but Email Doesn't Match -->
             <button
-              *ngIf="!isAuthenticated"
-              (click)="goToLogin()"
-              [disabled]="invitationInfo.is_expired"
-              class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+              *ngIf="isAuthenticated && !emailMatches() && !showEmailConfirmation"
+              (click)="confirmEmailMismatch()"
+              [disabled]="accepting || invitationInfo.is_expired"
+              class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium flex items-center justify-center gap-2"
             >
-              🔓 Sign In to Accept
+              <span>⚠️ Accept for {{ inviteeEmail }}</span>
             </button>
 
-            <button
-              *ngIf="!isAuthenticated"
-              (click)="goToSignup()"
-              [disabled]="invitationInfo.is_expired"
-              class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
-            >
-              ✨ Create Account to Accept
-            </button>
+            <!-- If Not Authenticated - Show Login/Signup options -->
+            <div *ngIf="!isAuthenticated" class="space-y-3">
+              <button
+                (click)="goToLogin()"
+                [disabled]="invitationInfo.is_expired"
+                class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+              >
+                🔓 Sign In to Accept
+              </button>
 
+              <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                  <div class="w-full border-t border-gray-300"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                  <span class="px-2 bg-white text-gray-500">or</span>
+                </div>
+              </div>
+
+              <button
+                (click)="goToSignup()"
+                [disabled]="invitationInfo.is_expired"
+                class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+              >
+                ✨ Create Account to Accept
+              </button>
+            </div>
+
+            <!-- Cancel Button -->
             <button
               (click)="goToLogin()"
               class="w-full px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"

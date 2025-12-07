@@ -29,10 +29,29 @@ export interface Expense {
   payer_id: string;
   total_amount: number;
   participants: string[];
-  type_label: string;
-  type_emoji: string;
+  category_id?: string;
+  team_category_id?: string;
   note?: string;
   created_at: string;
+  modified_at: string;
+  category?: {
+    id: string;
+    name: string;
+    emoji: string;
+    is_default: boolean;
+  };
+  team_category?: {
+    id: string;
+    team_id: string;
+    name: string;
+    emoji: string;
+    created_by: string;
+    created_at: string;
+    modified_at: string;
+  };
+  // Legacy fields for backward compatibility
+  type_label?: string;
+  type_emoji?: string;
 }
 
 export interface TokenResponse {

@@ -1,0 +1,161 @@
+/* Expense Drawer Component Styles */
+
+/* Drawer animations */
+.drawer-enter {
+  transform: translateX(100%);
+}
+
+.drawer-enter-active {
+  transform: translateX(0);
+  transition: transform 0.3s ease-out;
+}
+
+.drawer-leave {
+  transform: translateX(0);
+}
+
+.drawer-leave-active {
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in;
+}
+
+/* Backdrop fade */
+.backdrop-enter {
+  opacity: 0;
+}
+
+.backdrop-enter-active {
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+.backdrop-leave {
+  opacity: 1;
+}
+
+.backdrop-leave-active {
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+/* Category buttons */
+.category-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.category-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.category-button.selected {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Emoji picker */
+.emoji-grid {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.emoji-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.emoji-grid::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 2px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Participant cards */
+.participant-card {
+  transition: all 0.2s ease-in-out;
+}
+
+.participant-card:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.participant-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Form inputs */
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="radio"]:focus,
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Loading states */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Split summary */
+.split-summary {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+/* Button states */
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .drawer-panel {
+    max-width: 100%;
+  }
+  
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .emoji-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* Focus trap */
+.drawer-content:focus {
+  outline: none;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}

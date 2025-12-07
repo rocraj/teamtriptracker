@@ -35,12 +35,12 @@ def create_expense(
         user_id,
         expense_data.total_amount,
         expense_data.participants,
-        expense_data.type_label,
-        expense_data.type_emoji,
+        expense_data.category_id,
+        expense_data.team_category_id,
         expense_data.note
     )
     
-    return expense
+    return ExpenseService.enrich_expense_with_categories(session, expense)
 
 
 @router.get("/{team_id}", response_model=List[ExpenseResponse])
@@ -61,7 +61,7 @@ def list_team_expenses(
             detail="You are not a member of this team"
         )
     
-    expenses = ExpenseService.get_team_expenses(session, team_id, limit, offset)
+    expenses = ExpenseService.get_enriched_team_expenses(session, team_id, limit, offset)
     return expenses
 
 
@@ -89,7 +89,7 @@ def get_expense(
             detail="Expense not found"
         )
     
-    return expense
+    return ExpenseService.enrich_expense_with_categories(session, expense)
 
 
 @router.delete("/{expense_id}")

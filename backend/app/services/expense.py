@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 from sqlmodel import Session, select
 
-from app.models.schemas import Expense
+from app.models.schemas import Expense, ExpenseResponse, ExpenseCategory, TeamCustomCategory
 
 
 class ExpenseService:
@@ -18,8 +18,8 @@ class ExpenseService:
         payer_id: str,
         total_amount: float,
         participants: List[str],
-        type_label: str = "Other",
-        type_emoji: str = "💰",
+        category_id: Optional[str] = None,
+        team_category_id: Optional[str] = None,
         note: Optional[str] = None
     ) -> Expense:
         """Create a new expense."""
@@ -29,8 +29,8 @@ class ExpenseService:
             payer_id=payer_id,
             total_amount=total_amount,
             participants=json.dumps([str(p) for p in participants]),
-            type_label=type_label,
-            type_emoji=type_emoji,
+            category_id=category_id,
+            team_category_id=team_category_id,
             note=note,
             created_at=datetime.utcnow()
         )
@@ -80,3 +80,64 @@ class ExpenseService:
             return json.loads(expense.participants)
         except (json.JSONDecodeError, TypeError):
             return []
+
+    @staticmethod
+    def enrich_expense_with_categories(session: Session, expense: Expense) -> ExpenseResponse:
+        """Enrich expense with category details."""
+        # Convert expense to response format
+        expense_data = {
+            "id": expense.id,
+            "team_id": expense.team_id,
+            "payer_id": expense.payer_id,
+            "total_amount": expense.total_amount,
+            "participants": json.loads(expense.participants) if expense.participants else [],
+            "category_id": expense.category_id,
+            "team_category_id": expense.team_category_id,
+            "note": expense.note,
+            "created_at": expense.created_at,
+            "modified_at": expense.modified_at,
+            "category": None,
+            "team_category": None
+        }
+        
+        # Load default category if present
+        if expense.category_id:
+            category = session.exec(
+                select(ExpenseCategory).where(ExpenseCategory.id == expense.category_id)
+            ).first()
+            if category:
+                expense_data["category"] = {
+                    "id": category.id,
+                    "name": category.name,
+                    "emoji": category.emoji,
+                    "is_default": category.is_default
+                }
+        
+        # Load team custom category if present
+        if expense.team_category_id:
+            team_category = session.exec(
+                select(TeamCustomCategory).where(TeamCustomCategory.id == expense.team_category_id)
+            ).first()
+            if team_category:
+                expense_data["team_category"] = {
+                    "id": team_category.id,
+                    "name": team_category.name,
+                    "emoji": team_category.emoji,
+                    "team_id": team_category.team_id,
+                    "created_by": team_category.created_by,
+                    "created_at": team_category.created_at,
+                    "modified_at": team_category.modified_at
+                }
+        
+        return ExpenseResponse(**expense_data)
+
+    @staticmethod
+    def get_enriched_team_expenses(
+        session: Session,
+        team_id: str,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[ExpenseResponse]:
+        """Get all expenses for a team with category details."""
+        expenses = ExpenseService.get_team_expenses(session, team_id, limit, offset)
+        return [ExpenseService.enrich_expense_with_categories(session, expense) for expense in expenses]

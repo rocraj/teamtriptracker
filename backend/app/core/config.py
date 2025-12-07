@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     BACKEND_URL: str = "http://localhost:8000"
     
     # CORS
-    CORS_ORIGINS: list = ["http://localhost:4200", "http://localhost:3000"]
+    CORS_ORIGINS: list = ["*"]
     
     class Config:
         env_file = ".env"
