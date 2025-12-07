@@ -154,6 +154,26 @@ export class TeamService {
     });
   }
 
+  updateTeam(teamId: string, name?: string, trip_budget?: number): Observable<Team> {
+    return new Observable(observer => {
+      const payload: any = {};
+      if (name !== undefined && name !== null) {
+        payload.name = name;
+      }
+      if (trip_budget !== undefined && trip_budget !== null) {
+        payload.trip_budget = trip_budget;
+      }
+      this.api.put<Team>(`/teams/${teamId}`, payload, {
+        headers: this.getHeaders()
+      })
+      .then(response => {
+        observer.next(response.data);
+        observer.complete();
+      })
+      .catch(error => observer.error(error));
+    });
+  }
+
   addTeamMember(teamId: string, userId: string): Observable<TeamMember> {
     return new Observable(observer => {
       this.api.post<TeamMember>(`/teams/${teamId}/members`, {

@@ -12,7 +12,7 @@ from app.models.schemas import (
     TeamCreate, TeamResponse, TeamMemberResponse,
     BudgetSet, UserResponse, AddTeamMember, User,
     SendInvitationsRequest, BulkInvitationResult, AcceptInvitationRequest,
-    InvitationResponse
+    InvitationResponse, TeamUpdate
 )
 from app.services.team import TeamService
 from app.services.auth import AuthService
@@ -72,6 +72,35 @@ def get_team(
         )
     
     return team
+
+
+@router.put("/{team_id}", response_model=TeamResponse)
+def update_team(
+    team_id: str,
+    team_data: TeamUpdate,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update team name and/or budget. Only the team creator can update."""
+    try:
+        team = TeamService.update_team(
+            session, 
+            team_id, 
+            user_id, 
+            team_data.name, 
+            team_data.trip_budget
+        )
+        return team
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
 
 
 @router.delete("/{team_id}")

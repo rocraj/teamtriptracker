@@ -137,6 +137,46 @@ class TeamService:
         return member
     
     @staticmethod
+    def update_team(
+        session: Session,
+        team_id: str,
+        user_id: str,
+        name: Optional[str] = None,
+        trip_budget: Optional[float] = None
+    ) -> Team:
+        """Update team details. Only the creator can update the team."""
+        # Ensure IDs are UUIDs
+        if isinstance(team_id, str):
+            team_id = UUID(team_id)
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+        
+        # Get team
+        team = session.exec(
+            select(Team).where(Team.id == team_id)
+        ).first()
+        
+        if not team:
+            raise ValueError("Team not found")
+        
+        # Check if user is the creator
+        if team.created_by != user_id:
+            raise PermissionError("Only the team creator can update the team")
+        
+        # Update fields
+        if name is not None:
+            team.name = name
+        if trip_budget is not None:
+            team.trip_budget = trip_budget
+        
+        team.modified_at = datetime.utcnow()
+        session.add(team)
+        session.commit()
+        session.refresh(team)
+        return team
+        return member
+    
+    @staticmethod
     def delete_team(session: Session, team_id: str, user_id: str) -> bool:
         """Delete a team. Only the creator can delete the team."""
         # Ensure IDs are UUIDs
@@ -184,4 +224,3 @@ class TeamService:
         session.delete(team)
         session.commit()
         return True
-        return member

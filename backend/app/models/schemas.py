@@ -115,6 +115,12 @@ class TeamCreate(TeamBase):
     pass
 
 
+class TeamUpdate(SQLModel):
+    """Team update schema."""
+    name: Optional[str] = None
+    trip_budget: Optional[float] = None
+
+
 class TeamResponse(TeamBase):
     """Team response schema."""
     id: UUID

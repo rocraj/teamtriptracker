@@ -23,7 +23,10 @@ export class TeamDetailPageComponent implements OnInit {
   activeTab: 'expenses' | 'balances' | 'settlements' = 'expenses';
   showInviteModal: boolean = false;
   showDeleteModal: boolean = false;
+  showEditModal: boolean = false;
   currentUserId: string = '';
+  editTeamName: string = '';
+  editTeamBudget: number | null = null;
   Math = Math;
 
   constructor(
@@ -156,6 +159,40 @@ export class TeamDetailPageComponent implements OnInit {
         this.loading = false;
         this.error = getErrorMessage(error);
         this.closeDeleteModal();
+      }
+    );
+  }
+
+  openEditModal(): void {
+    if (this.isTeamCreator()) {
+      this.editTeamName = this.team.name;
+      this.editTeamBudget = this.team.trip_budget || null;
+      this.showEditModal = true;
+    }
+  }
+
+  closeEditModal(): void {
+    this.showEditModal = false;
+  }
+
+  saveTeamChanges(): void {
+    if (!this.editTeamName.trim()) {
+      this.error = 'Team name cannot be empty';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    this.teamService.updateTeam(this.teamId, this.editTeamName, this.editTeamBudget || undefined).subscribe(
+      (updatedTeam) => {
+        this.loading = false;
+        this.team = updatedTeam;
+        this.closeEditModal();
+      },
+      (error) => {
+        this.loading = false;
+        this.error = getErrorMessage(error);
       }
     );
   }
