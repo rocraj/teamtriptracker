@@ -23,6 +23,7 @@ class User(SQLModel, table=True):
     auth_provider: AuthProvider
     hashed_password: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Team(SQLModel, table=True):
@@ -32,6 +33,7 @@ class Team(SQLModel, table=True):
     name: str
     created_by: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class TeamMember(SQLModel, table=True):
@@ -41,6 +43,8 @@ class TeamMember(SQLModel, table=True):
     team_id: UUID = Field(foreign_key="team.id")
     user_id: UUID = Field(foreign_key="user.id")
     initial_budget: float = 0.0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Expense(SQLModel, table=True):
@@ -55,6 +59,7 @@ class Expense(SQLModel, table=True):
     type_emoji: str = "💰"
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class TeamInvitation(SQLModel, table=True):
@@ -65,6 +70,7 @@ class TeamInvitation(SQLModel, table=True):
     invitee_email: str = Field(index=True)
     inviter_id: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
     expires_at: datetime
     is_used: bool = Field(default=False, index=True)
 
@@ -94,6 +100,7 @@ class UserResponse(UserBase):
     id: UUID
     auth_provider: AuthProvider
     created_at: datetime
+    modified_at: datetime
 
 
 class TeamBase(SQLModel):
@@ -111,6 +118,7 @@ class TeamResponse(TeamBase):
     id: UUID
     created_by: UUID
     created_at: datetime
+    modified_at: datetime
 
 
 class TeamMemberResponse(SQLModel):
@@ -119,6 +127,8 @@ class TeamMemberResponse(SQLModel):
     team_id: UUID
     user_id: UUID
     initial_budget: float
+    created_at: datetime
+    modified_at: datetime
 
 
 class ExpenseBase(SQLModel):
@@ -141,6 +151,7 @@ class ExpenseResponse(ExpenseBase):
     team_id: UUID
     payer_id: UUID
     created_at: datetime
+    modified_at: datetime
 
     @field_validator('participants', mode='before')
     @classmethod
@@ -188,6 +199,7 @@ class InvitationResponse(SQLModel):
     invitee_email: str
     inviter_id: UUID
     created_at: datetime
+    modified_at: datetime
     expires_at: datetime
     is_used: bool
 
