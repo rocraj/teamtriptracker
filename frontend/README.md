@@ -6,9 +6,32 @@ Angular 17 + TailwindCSS frontend for team expense tracking application.
 
 ```bash
 npm install
-ng serve
+npm start
 # Navigate to http://localhost:4200
 ```
+
+### Network Access (WiFi)
+
+To access the app from other devices on the same WiFi network:
+
+```bash
+# Start with network binding (accessible from other devices)
+npm start
+# or explicitly:
+npm run start:network
+
+# Find your local IP address:
+# macOS/Linux: ipconfig getifaddr en0
+# Windows: ipconfig (look for IPv4 Address)
+
+# Then access from another device: http://<your-ip>:4200
+```
+
+**Scripts Available:**
+- `npm start` - Start dev server (network accessible)
+- `npm run start:localhost` - Start dev server (localhost only)
+- `npm run start:network` - Start with polling (for some WiFi setups)
+
 
 ## Project Structure
 

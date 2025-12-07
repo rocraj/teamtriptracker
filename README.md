@@ -29,6 +29,7 @@ cd frontend
 npm install
 npm start
 # Frontend runs on http://localhost:4200
+# Access from other WiFi devices: http://<your-local-ip>:4200
 
 # Backend Setup (in new terminal)
 cd backend
@@ -40,6 +41,23 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 # Backend runs on http://localhost:8000
 ```
+
+### Network Access
+
+The frontend is configured to be accessible from other devices on the same WiFi:
+
+```bash
+# Find your local IP:
+ipconfig getifaddr en0  # macOS/Linux
+
+# Access from another device:
+http://<your-local-ip>:4200
+```
+
+Available npm scripts:
+- `npm start` - Start dev server (network accessible, default)
+- `npm run start:localhost` - Start dev server (localhost only)
+- `npm run start:network` - Start with polling (for unstable WiFi)
 
 ## 📁 Project Structure
 

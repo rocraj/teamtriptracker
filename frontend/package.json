@@ -4,7 +4,9 @@
   "description": "TeamSplit - Group Expense & Budget Sharing App",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "ng serve --host 0.0.0.0 --port 4200 --disable-host-check",
+    "start:localhost": "ng serve",
+    "start:network": "ng serve --host 0.0.0.0 --port 4200 --disable-host-check --poll 2000",
     "build": "ng build",
     "build:prod": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
