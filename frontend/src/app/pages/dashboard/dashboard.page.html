@@ -1,0 +1,85 @@
+<app-header title="Dashboard"></app-header>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Error Alert -->
+  <app-alert
+    *ngIf="error"
+    [message]="error"
+    [type]="'error'"
+    [visible]="!!error"
+  ></app-alert>
+
+  <!-- Loading State -->
+  <app-loading *ngIf="loading"></app-loading>
+
+  <!-- Create Team Modal -->
+  <app-create-team-modal
+    [isOpen]="showCreateTeamModal"
+    (close)="onCloseCreateTeamModal()"
+    (teamCreated)="onTeamCreated($event)"
+  ></app-create-team-modal>
+
+  <!-- Main Content -->
+  <div *ngIf="!loading" class="space-y-8">
+    <!-- Welcome Section -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 sm:p-8 text-white">
+      <h1 class="text-3xl sm:text-4xl font-bold mb-2">Welcome back! 👋</h1>
+      <p class="text-blue-100">You have {{ teams.length }} active teams</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <button
+        (click)="createNewTeam()"
+        class="px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition flex items-center justify-center space-x-2"
+      >
+        <span>➕</span>
+        <span>Create New Team</span>
+      </button>
+      <button
+        *ngIf="teams.length > 0"
+        (click)="goToAddExpense(teams[0].id)"
+        class="px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition flex items-center justify-center space-x-2"
+      >
+        <span>💸</span>
+        <span>Add Expense</span>
+      </button>
+    </div>
+
+    <!-- Your Teams Section -->
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Your Teams</h2>
+      <div *ngIf="teams.length > 0; else noTeams" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <app-team-card
+          *ngFor="let team of teams"
+          [team]="team"
+          [memberCount]="team.member_count || 0"
+          [balance]="0"
+          (click)="goToTeam(team.id)"
+        ></app-team-card>
+      </div>
+      <ng-template #noTeams>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+          <p class="text-gray-600 mb-4">No teams yet. Create one to get started!</p>
+          <button
+            (click)="createNewTeam()"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            Create First Team
+          </button>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Recent Expenses Section -->
+    <div *ngIf="recentExpenses.length > 0">
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Recent Expenses</h2>
+      <div class="space-y-3">
+        <app-expense-card
+          *ngFor="let expense of recentExpenses"
+          [expense]="expense"
+        ></app-expense-card>
+      </div>
+    </div>
+  </div>
+</div>
