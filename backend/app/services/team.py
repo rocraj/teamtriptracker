@@ -11,7 +11,7 @@ class TeamService:
     """Service for team operations."""
     
     @staticmethod
-    def create_team(session: Session, name: str, created_by_id: str) -> Team:
+    def create_team(session: Session, name: str, created_by_id: str, trip_budget: Optional[float] = None) -> Team:
         """Create a new team."""
         # Ensure created_by_id is a UUID
         if isinstance(created_by_id, str):
@@ -20,8 +20,10 @@ class TeamService:
         team = Team(
             id=uuid4(),
             name=name,
+            trip_budget=trip_budget,
             created_by=created_by_id,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            modified_at=datetime.utcnow()
         )
         session.add(team)
         session.commit()
@@ -132,4 +134,54 @@ class TeamService:
         session.add(member)
         session.commit()
         session.refresh(member)
+        return member
+    
+    @staticmethod
+    def delete_team(session: Session, team_id: str, user_id: str) -> bool:
+        """Delete a team. Only the creator can delete the team."""
+        # Ensure IDs are UUIDs
+        if isinstance(team_id, str):
+            team_id = UUID(team_id)
+        if isinstance(user_id, str):
+            user_id = UUID(user_id)
+        
+        # Get team
+        team = session.exec(
+            select(Team).where(Team.id == team_id)
+        ).first()
+        
+        if not team:
+            raise ValueError("Team not found")
+        
+        # Check if user is the creator
+        if team.created_by != user_id:
+            raise PermissionError("Only the team creator can delete the team")
+        
+        # Delete all team members first (foreign key constraint)
+        members = session.exec(
+            select(TeamMember).where(TeamMember.team_id == team_id)
+        ).all()
+        for member in members:
+            session.delete(member)
+        
+        # Delete all expenses for this team
+        from app.models.schemas import Expense
+        expenses = session.exec(
+            select(Expense).where(Expense.team_id == team_id)
+        ).all()
+        for expense in expenses:
+            session.delete(expense)
+        
+        # Delete all invitations for this team
+        from app.models.schemas import TeamInvitation
+        invitations = session.exec(
+            select(TeamInvitation).where(TeamInvitation.team_id == team_id)
+        ).all()
+        for invitation in invitations:
+            session.delete(invitation)
+        
+        # Finally delete the team
+        session.delete(team)
+        session.commit()
+        return True
         return member

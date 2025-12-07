@@ -10,6 +10,7 @@ export interface User {
 export interface Team {
   id: string;
   name: string;
+  trip_budget?: number;
   created_by: string;
   created_at: string;
   member_count?: number;

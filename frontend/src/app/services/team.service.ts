@@ -37,9 +37,13 @@ export class TeamService {
     };
   }
 
-  createTeam(name: string): Observable<Team> {
+  createTeam(name: string, trip_budget?: number): Observable<Team> {
     return new Observable(observer => {
-      this.api.post<Team>('/teams', { name }, {
+      const payload: any = { name };
+      if (trip_budget !== undefined && trip_budget !== null) {
+        payload.trip_budget = trip_budget;
+      }
+      this.api.post<Team>('/teams', payload, {
         headers: this.getHeaders()
       })
       .then(response => {
@@ -127,6 +131,19 @@ export class TeamService {
   getMembers(teamId: string): Observable<TeamMember[]> {
     return new Observable(observer => {
       this.api.get<TeamMember[]>(`/teams/${teamId}/members`, {
+        headers: this.getHeaders()
+      })
+      .then(response => {
+        observer.next(response.data);
+        observer.complete();
+      })
+      .catch(error => observer.error(error));
+    });
+  }
+
+  deleteTeam(teamId: string): Observable<any> {
+    return new Observable(observer => {
+      this.api.delete(`/teams/${teamId}`, {
         headers: this.getHeaders()
       })
       .then(response => {

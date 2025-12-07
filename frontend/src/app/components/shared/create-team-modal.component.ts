@@ -13,6 +13,7 @@ export class CreateTeamModalComponent {
   @Output() teamCreated = new EventEmitter<any>();
 
   teamName: string = '';
+  teamBudget: number | null = null;
   loading: boolean = false;
   error: string = '';
 
@@ -21,6 +22,7 @@ export class CreateTeamModalComponent {
   openModal(): void {
     this.isOpen = true;
     this.teamName = '';
+    this.teamBudget = null;
     this.error = '';
   }
 
@@ -38,7 +40,7 @@ export class CreateTeamModalComponent {
     this.loading = true;
     this.error = '';
 
-    this.teamService.createTeam(this.teamName).subscribe(
+    this.teamService.createTeam(this.teamName, this.teamBudget || undefined).subscribe(
       (team) => {
         this.loading = false;
         this.teamCreated.emit(team);

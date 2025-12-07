@@ -29,7 +29,7 @@ def create_team(
     user_id: str = Depends(get_current_user_id)
 ):
     """Create a new team and add creator as default member."""
-    team = TeamService.create_team(session, team_data.name, user_id)
+    team = TeamService.create_team(session, team_data.name, user_id, team_data.trip_budget)
     
     # Add creator as team member
     TeamService.add_team_member(session, str(team.id), user_id)
@@ -72,6 +72,28 @@ def get_team(
         )
     
     return team
+
+
+@router.delete("/{team_id}")
+def delete_team(
+    team_id: str,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Delete a team. Only the team creator can delete the team."""
+    try:
+        TeamService.delete_team(session, team_id, user_id)
+        return {"message": "Team deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
 
 
 @router.post("/{team_id}/invite")

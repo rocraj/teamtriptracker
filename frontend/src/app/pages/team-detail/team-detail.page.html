@@ -19,8 +19,9 @@
       <div>
         <h1 class="text-3xl font-bold text-gray-900">{{ team.name }}</h1>
         <p class="text-sm text-gray-600 mt-1">{{ members.length }} members</p>
+        <p *ngIf="team.trip_budget" class="text-sm text-gray-600 mt-1">Budget: ${{ team.trip_budget | number:'1.2-2' }}</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap">
         <button
           (click)="openInviteModal()"
           class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium"
@@ -32,6 +33,13 @@
           class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
         >
           💸 Add Expense
+        </button>
+        <button
+          *ngIf="isTeamCreator()"
+          (click)="openDeleteModal()"
+          class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
+        >
+          🗑️ Delete Team
         </button>
       </div>
     </div>
@@ -112,3 +120,38 @@
   (close)="closeInviteModal()"
   (membersInvited)="onMembersInvited()"
 ></app-invite-members-modal>
+
+<!-- Delete Team Confirmation Modal -->
+<div *ngIf="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" (click)="closeDeleteModal()">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-xl font-semibold text-gray-900">Delete Team</h2>
+    </div>
+
+    <!-- Content -->
+    <div class="px-6 py-4">
+      <p class="text-gray-700">Are you sure you want to delete <strong>{{ team.name }}</strong>?</p>
+      <p class="text-sm text-red-600 mt-2">⚠️ This will permanently delete all expenses, members, and invitations associated with this team. This action cannot be undone.</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
+      <button
+        (click)="closeDeleteModal()"
+        [disabled]="loading"
+        class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition font-medium disabled:bg-gray-100 disabled:cursor-not-allowed"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="confirmDelete()"
+        [disabled]="loading"
+        class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        <span *ngIf="!loading">Delete Team</span>
+        <span *ngIf="loading">Deleting...</span>
+      </button>
+    </div>
+  </div>
+</div>

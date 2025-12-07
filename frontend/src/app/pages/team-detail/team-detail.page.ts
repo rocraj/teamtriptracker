@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { TeamService } from '../../services/team.service';
 import { ExpenseService } from '../../services/expense.service';
 import { SummaryService } from '../../services/summary.service';
+import { AuthService } from '../../services/auth.service';
 import { getErrorMessage } from '../../utils/validation';
 
 @Component({
@@ -21,6 +22,8 @@ export class TeamDetailPageComponent implements OnInit {
   error: string = '';
   activeTab: 'expenses' | 'balances' | 'settlements' = 'expenses';
   showInviteModal: boolean = false;
+  showDeleteModal: boolean = false;
+  currentUserId: string = '';
   Math = Math;
 
   constructor(
@@ -28,10 +31,14 @@ export class TeamDetailPageComponent implements OnInit {
     private router: Router,
     private teamService: TeamService,
     private expenseService: ExpenseService,
-    private summaryService: SummaryService
+    private summaryService: SummaryService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
+    this.authService.currentUser$.subscribe(user => {
+      this.currentUserId = user?.id || '';
+    });
     this.route.params.subscribe((params) => {
       this.teamId = params['id'];
       this.loadTeamData();
@@ -115,5 +122,41 @@ export class TeamDetailPageComponent implements OnInit {
   onMembersInvited(): void {
     this.loadMembers();
     this.closeInviteModal();
+  }
+
+  isTeamCreator(): boolean {
+    return this.team && this.currentUserId && this.team.created_by === this.currentUserId;
+  }
+
+  openDeleteModal(): void {
+    if (this.isTeamCreator()) {
+      this.showDeleteModal = true;
+    }
+  }
+
+  closeDeleteModal(): void {
+    this.showDeleteModal = false;
+  }
+
+  confirmDelete(): void {
+    if (!this.isTeamCreator()) {
+      this.error = 'Only the team creator can delete this team';
+      return;
+    }
+
+    this.loading = true;
+    this.error = '';
+
+    this.teamService.deleteTeam(this.teamId).subscribe(
+      () => {
+        this.loading = false;
+        this.router.navigate(['/dashboard']);
+      },
+      (error) => {
+        this.loading = false;
+        this.error = getErrorMessage(error);
+        this.closeDeleteModal();
+      }
+    );
   }
 }

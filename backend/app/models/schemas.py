@@ -31,6 +31,7 @@ class Team(SQLModel, table=True):
     
     id: Optional[UUID] = Field(default=None, primary_key=True)
     name: str
+    trip_budget: Optional[float] = Field(default=None)
     created_by: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
@@ -106,6 +107,7 @@ class UserResponse(UserBase):
 class TeamBase(SQLModel):
     """Base team schema."""
     name: str
+    trip_budget: Optional[float] = None
 
 
 class TeamCreate(TeamBase):
@@ -119,6 +121,7 @@ class TeamResponse(TeamBase):
     created_by: UUID
     created_at: datetime
     modified_at: datetime
+    trip_budget: Optional[float] = None
 
 
 class TeamMemberResponse(SQLModel):
