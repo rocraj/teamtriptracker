@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Column, String
 from enum import Enum
+import json
+from pydantic import field_validator
 
 
 class AuthProvider(str, Enum):
@@ -140,6 +142,17 @@ class ExpenseResponse(ExpenseBase):
     payer_id: UUID
     created_at: datetime
 
+    @field_validator('participants', mode='before')
+    @classmethod
+    def parse_participants(cls, v):
+        """Convert JSON string to list if needed."""
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v
+
 
 class TokenResponse(SQLModel):
     """Token response schema."""
@@ -186,10 +199,15 @@ class AcceptInvitationRequest(SQLModel):
 
 class BulkInvitationResult(SQLModel):
     """Result of sending bulk invitations."""
-    successful: int
-    failed: int
-    message: str
-    details: List[dict]
+    team_id: Optional[str] = None
+    invited_emails: Optional[List[str]] = None
+    added_existing_users: Optional[List[str]] = None
+    failed_emails: Optional[List[str]] = None
+    total_invitations_sent: Optional[int] = None
+    successful: Optional[int] = None
+    failed: Optional[int] = None
+    message: Optional[str] = None
+    details: Optional[List[dict]] = None
 
 
 class TokenAuth(SQLModel):

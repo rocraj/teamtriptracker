@@ -84,13 +84,11 @@ def setup_team_with_expenses_fixture(client: TestClient):
     )
     team_id = team_response.json()["id"]
     
-    # Invite user 2
+    # Add user 2 to team
     client.post(
-        f"/teams/{team_id}/invite",
-        params={
-            "token": token1,
-            "email": "user2@example.com"
-        }
+        f"/teams/{team_id}/members",
+        json={"user_id": user2_id},
+        headers=get_auth_headers(token1)
     )
     
     # Create expenses
@@ -138,7 +136,7 @@ class TestSummaryEndpoints:
         data = setup_team_with_expenses
         response = data["client"].get(
             f"/summary/{data['team_id']}/balances",
-            params={"token": data["token1"]}
+            headers=get_auth_headers(data["token1"])
         )
         assert response.status_code == 200
         result = response.json()
@@ -206,7 +204,7 @@ class TestSummaryEndpoints:
         data = setup_team_with_expenses
         response = data["client"].get(
             f"/summary/{data['team_id']}/settlements",
-            params={"token": data["token1"]}
+            headers=get_auth_headers(data["token1"])
         )
         assert response.status_code == 200
         result = response.json()
@@ -258,7 +256,7 @@ class TestSummaryEndpoints:
         data = setup_team_with_expenses
         response = data["client"].get(
             f"/summary/{data['team_id']}/next-payer",
-            params={"token": data["token1"]}
+            headers=get_auth_headers(data["token1"])
         )
         assert response.status_code == 200
         result = response.json()
@@ -280,7 +278,7 @@ class TestSummaryEndpoints:
         data = setup_team_with_expenses
         response = data["client"].get(
             f"/summary/{data['team_id']}/balances",
-            params={"token": data["token1"]}
+            headers=get_auth_headers(data["token1"])
         )
         result = response.json()
         balances = result["balances"]

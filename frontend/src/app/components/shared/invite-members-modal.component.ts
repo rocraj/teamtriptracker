@@ -73,28 +73,6 @@ export class InviteMembersModalComponent {
     this.success = '';
     this.invitedCount = 0;
 
-  sendInvites(): void {
-    // Filter out empty emails
-    const validEmails = this.emails.filter(email => email.trim());
-
-    if (validEmails.length === 0) {
-      this.error = 'Please enter at least one email address';
-      return;
-    }
-
-    // Validate emails
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const invalidEmails = validEmails.filter(email => !emailRegex.test(email));
-    if (invalidEmails.length > 0) {
-      this.error = `Invalid email format: ${invalidEmails.join(', ')}`;
-      return;
-    }
-
-    this.loading = true;
-    this.error = '';
-    this.success = '';
-    this.invitedCount = 0;
-
     // Use new bulk invite endpoint
     this.teamService.sendBulkInvitations(this.teamId, validEmails).subscribe(
       (response) => {
