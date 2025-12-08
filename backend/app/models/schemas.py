@@ -162,6 +162,9 @@ class TeamMemberResponse(SQLModel):
     initial_budget: float
     created_at: datetime
     modified_at: datetime
+    # User details
+    user_name: str
+    user_email: str
 
 
 class ExpenseCategoryBase(SQLModel):
@@ -210,6 +213,15 @@ class ExpenseBase(SQLModel):
 class ExpenseCreate(ExpenseBase):
     """Expense creation schema."""
     team_id: UUID
+
+
+class ExpenseUpdate(SQLModel):
+    """Expense update schema."""
+    total_amount: Optional[float] = None
+    participants: Optional[List[UUID]] = None
+    category_id: Optional[UUID] = None
+    team_category_id: Optional[UUID] = None
+    note: Optional[str] = None
 
 
 class ExpenseResponse(ExpenseBase):
@@ -296,3 +308,38 @@ class BulkInvitationResult(SQLModel):
 class TokenAuth(SQLModel):
     """Token authentication schema."""
     token: str
+
+
+class SettlementStatus(str, Enum):
+    """Settlement request status."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+class SettlementRequest(SQLModel, table=True):
+    """Settlement request model for managing payment settlements between users."""
+    
+    id: Optional[UUID] = Field(default=None, primary_key=True)
+    team_id: UUID = Field(foreign_key="team.id")
+    from_user_id: UUID = Field(foreign_key="user.id")  # User who owes money
+    to_user_id: UUID = Field(foreign_key="user.id")    # User who will receive money
+    amount: float = Field(gt=0)
+    status: SettlementStatus = Field(default=SettlementStatus.PENDING)
+    message: Optional[str] = None  # Optional message from requester
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    approved_at: Optional[datetime] = None
+    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow().replace(hour=23, minute=59, second=59))  # Expires at end of day
+    
+
+class CreateSettlementRequest(SQLModel):
+    """Request schema for creating a settlement request."""
+    to_user_id: str
+    amount: float
+    message: Optional[str] = None
+
+
+class ApproveSettlementRequest(SQLModel):
+    """Request schema for approving a settlement."""
+    settlement_id: str

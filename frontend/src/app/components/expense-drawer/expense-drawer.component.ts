@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TeamService } from '../../services/team.service';
 import { ExpenseService } from '../../services/expense.service';
+import { BudgetService } from '../../services/budget.service';
 import { CategoryService, ExpenseCategory, TeamCustomCategory, TeamCategoriesResponse } from '../../services/category.service';
 import { AuthService } from '../../services/auth.service';
-import { Expense } from '../../models/index';
+import { Expense, PayerSuggestion } from '../../models/index';
 import { EmojiPickerComponent } from '../shared/emoji-picker.component';
 
 interface TeamMemberWithUser {
@@ -13,12 +14,11 @@ interface TeamMemberWithUser {
   user_id: string;
   team_id: string;
   initial_budget: number;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    photo_url?: string;
-  };
+  user_name: string;
+  user_email: string;
+  photo_url?: string;
+  created_at: string;
+  modified_at: string;
 }
 
 interface ExpenseForm {
@@ -56,6 +56,11 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
   additionalEmojis: string[] = [];
   isLoading = false;
   errorMessage = '';
+  
+  // Payer suggestion properties
+  payerSuggestion: PayerSuggestion | null = null;
+  showPayerSuggestion = false;
+  suggestionDismissed = false;
 
   form: ExpenseForm = {
     description: '',
@@ -70,6 +75,15 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
   customCategoryName = '';
   customCategoryEmoji = '💰';
   selectedCategoryValue = ''; // For dropdown binding
+
+  // Form state persistence
+  private savedFormState: ExpenseForm | null = null;
+  private savedCustomCategoryState = {
+    name: '',
+    emoji: '💰',
+    showCustomCategory: false,
+    showEmojiPicker: false
+  };
 
   get isEditMode(): boolean {
     return this.expense !== null;
@@ -86,6 +100,7 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
   constructor(
     private teamService: TeamService,
     private expenseService: ExpenseService,
+    private budgetService: BudgetService,
     public categoryService: CategoryService,
     private authService: AuthService
   ) {}
@@ -135,22 +150,36 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
         dropdownValue = `team:${this.expense.team_category.id}`;
       }
       
+      // Determine split type based on participants
+      const allMemberIds = this.teamMembers.map(m => m.user_id);
+      const isEqualSplit = this.expense.participants.length === allMemberIds.length && 
+                          this.expense.participants.every(p => allMemberIds.includes(p));
+      
       this.form = {
         description: this.expense.note || '',
         amount: this.expense.total_amount,
         selectedCategory,
-        splitType: 'selected', // Always selected for existing expenses
+        splitType: isEqualSplit ? 'equal' : 'selected',
         selectedParticipants: [...this.expense.participants]
       };
       this.selectedCategoryValue = dropdownValue;
     } else {
-      // Add mode - reset to defaults
-      this.resetForm();
+      // Add mode - try to restore saved state, otherwise reset to defaults
+      if (this.savedFormState) {
+        this.restoreFormState();
+      } else {
+        this.resetForm();
+      }
     }
     this.errorMessage = '';
   }
 
-  resetForm() {
+  resetForm(saveCurrentState: boolean = false) {
+    if (saveCurrentState && !this.isEditMode) {
+      // Save current form state before resetting (only in add mode)
+      this.saveFormState();
+    }
+    
     this.form = {
       description: '',
       amount: null,
@@ -172,7 +201,8 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
       next: (members: any[]) => {
         this.teamMembers = members;
         // Initialize selected participants with all members for equal split (add mode only)
-        if (!this.isEditMode && this.form.splitType === 'equal') {
+        // Only auto-select if no participants are already selected (to preserve saved state)
+        if (!this.isEditMode && this.form.splitType === 'equal' && this.form.selectedParticipants.length === 0) {
           this.form.selectedParticipants = members.map((m: any) => m.user_id);
         }
         this.isLoading = false;
@@ -188,11 +218,11 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
   loadCategories() {
     this.categoryService.getTeamCategories(this.teamId).subscribe({
       next: (response: TeamCategoriesResponse) => {
-        this.defaultCategories = response.default_categories.map(cat => ({
+        this.defaultCategories = response.default.map(cat => ({
           ...cat,
           color: this.categoryService.getCategoryColor(cat.name)
         }));
-        this.teamCustomCategories = response.team_categories;
+        this.teamCustomCategories = response.custom;
         
         // Set default food category if no category is selected
         if (!this.form.selectedCategory && this.defaultCategories.length > 0) {
@@ -271,6 +301,11 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
         this.form.selectedParticipants = [];
       }
     }
+    
+    // Update smart suggestions when split type changes
+    if (this.form.amount && this.form.amount > 0 && !this.suggestionDismissed) {
+      this.getSuggestedPayer();
+    }
   }
 
   toggleParticipant(userId: string) {
@@ -279,6 +314,11 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
       this.form.selectedParticipants.splice(index, 1);
     } else {
       this.form.selectedParticipants.push(userId);
+    }
+    
+    // Update smart suggestions when participants change
+    if (this.form.amount && this.form.amount > 0 && !this.suggestionDismissed) {
+      this.getSuggestedPayer();
     }
   }
 
@@ -290,7 +330,8 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
     if (this.customCategoryName.trim()) {
       this.categoryService.createTeamCustomCategory(this.teamId, {
         name: this.customCategoryName.trim(),
-        emoji: this.customCategoryEmoji
+        emoji: this.customCategoryEmoji,
+        team_id: this.teamId
       }).subscribe({
         next: (newCategory: TeamCustomCategory) => {
           this.teamCustomCategories.push(newCategory);
@@ -356,9 +397,39 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
     this.errorMessage = '';
 
     if (this.isEditMode && this.expense) {
-      // Update existing expense (when update endpoint is available)
-      this.errorMessage = 'Update functionality coming soon';
-      this.isLoading = false;
+      // Update existing expense
+      const updateData: any = {
+        total_amount: this.form.amount!,
+        participants: this.form.selectedParticipants,
+        note: this.form.description.trim() || null
+      };
+      
+      // Handle category updates
+      if (this.form.selectedCategory) {
+        if (this.form.selectedCategory.type === 'default' && this.form.selectedCategory.id) {
+          updateData.category_id = this.form.selectedCategory.id;
+          updateData.team_category_id = null; // Clear team category
+        } else if (this.form.selectedCategory.type === 'team' && this.form.selectedCategory.id) {
+          updateData.team_category_id = this.form.selectedCategory.id;
+          updateData.category_id = null; // Clear regular category
+        }
+      } else {
+        // Clear both if no category selected
+        updateData.category_id = null;
+        updateData.team_category_id = null;
+      }
+      
+      this.expenseService.updateExpense(this.expense.id, updateData).subscribe({
+        next: (expense) => {
+          this.expenseUpdated.emit(expense);
+          this.close.emit();
+        },
+        error: (error: any) => {
+          console.error('Error updating expense:', error);
+          this.errorMessage = error.error?.detail || 'Failed to update expense';
+          this.isLoading = false;
+        }
+      });
     } else {
       // Create new expense
       const expenseData: any = {
@@ -379,8 +450,10 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
       
       this.expenseService.createExpense(expenseData).subscribe({
         next: (expense) => {
+          this.clearSavedFormState(); // Clear saved state on successful creation
           this.expenseCreated.emit(expense);
-          this.onCancel();
+          this.close.emit();
+          this.resetForm(); // Reset without saving state
         },
         error: (error: any) => {
           console.error('Error creating expense:', error);
@@ -393,7 +466,7 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
 
   onCancel() {
     this.close.emit();
-    this.resetForm();
+    this.resetForm(true); // Save state when canceling
     this.isLoading = false;
   }
 
@@ -412,5 +485,84 @@ export class ExpenseDrawerComponent implements OnInit, OnChanges {
       return 0;
     }
     return this.form.amount / this.form.selectedParticipants.length;
+  }
+
+  // Form state persistence methods
+  private saveFormState() {
+    // Only save if there's meaningful data
+    if (this.form.description.trim() || this.form.amount || this.form.selectedCategory) {
+      this.savedFormState = { ...this.form };
+      this.savedCustomCategoryState = {
+        name: this.customCategoryName,
+        emoji: this.customCategoryEmoji,
+        showCustomCategory: this.showCustomCategory,
+        showEmojiPicker: this.showEmojiPicker
+      };
+    }
+  }
+
+  private restoreFormState() {
+    if (this.savedFormState) {
+      this.form = { ...this.savedFormState };
+      
+      // Restore category dropdown value
+      if (this.form.selectedCategory) {
+        this.selectedCategoryValue = `${this.form.selectedCategory.type}:${this.form.selectedCategory.id}`;
+      }
+      
+      // Restore custom category state
+      this.customCategoryName = this.savedCustomCategoryState.name;
+      this.customCategoryEmoji = this.savedCustomCategoryState.emoji;
+      this.showCustomCategory = this.savedCustomCategoryState.showCustomCategory;
+      this.showEmojiPicker = this.savedCustomCategoryState.showEmojiPicker;
+    }
+  }
+
+  private clearSavedFormState() {
+    this.savedFormState = null;
+    this.savedCustomCategoryState = {
+      name: '',
+      emoji: '💰',
+      showCustomCategory: false,
+      showEmojiPicker: false
+    };
+  }
+
+  // Payer suggestion methods
+  onAmountChange() {
+    if (this.form.amount && this.form.amount > 0 && !this.suggestionDismissed) {
+      this.getSuggestedPayer();
+    } else {
+      this.showPayerSuggestion = false;
+    }
+  }
+
+  private getSuggestedPayer() {
+    if (!this.form.amount || this.form.amount <= 0) return;
+    
+    this.budgetService.suggestOptimalPayer(this.teamId, this.form.amount).subscribe({
+      next: (suggestion) => {
+        this.payerSuggestion = suggestion;
+        this.showPayerSuggestion = !!suggestion && !this.suggestionDismissed;
+      },
+      error: (error) => {
+        console.error('Error getting payer suggestion:', error);
+        this.showPayerSuggestion = false;
+      }
+    });
+  }
+
+  acceptPayerSuggestion() {
+    if (this.payerSuggestion) {
+      // Note: In current implementation, payer is always current user
+      // This suggestion is for awareness only
+      this.showPayerSuggestion = false;
+      this.suggestionDismissed = true;
+    }
+  }
+
+  dismissPayerSuggestion() {
+    this.showPayerSuggestion = false;
+    this.suggestionDismissed = true;
   }
 }

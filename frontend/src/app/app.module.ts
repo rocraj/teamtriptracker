@@ -2,11 +2,14 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+
+// Import interceptors
+import { AuthInterceptor, LoadingInterceptor } from './interceptors';
 
 // Import pages
 import { LoginPageComponent } from './pages/login/login.page';
@@ -35,6 +38,9 @@ import { TeamCardComponent } from './components/cards/team-card.component';
 import { ExpenseCardComponent } from './components/cards/expense-card.component';
 import { ExpenseDrawerComponent } from './components/expense-drawer/expense-drawer.component';
 
+// Import pipes
+import { UserNamePipe } from './pipes';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -58,8 +64,7 @@ import { ExpenseDrawerComponent } from './components/expense-drawer/expense-draw
     InputFieldComponent,
     SelectFieldComponent,
     // Card Components
-    TeamCardComponent,
-    ExpenseCardComponent
+    TeamCardComponent
   ],
   imports: [
     BrowserModule,
@@ -69,9 +74,22 @@ import { ExpenseDrawerComponent } from './components/expense-drawer/expense-draw
     ReactiveFormsModule,
     HttpClientModule,
     CommonModule,
-    ExpenseDrawerComponent
+    ExpenseDrawerComponent,
+    ExpenseCardComponent,
+    UserNamePipe
   ],
-  providers: [],
+  providers: [
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
+      multi: true
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: LoadingInterceptor,
+      multi: true
+    }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

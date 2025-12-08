@@ -17,7 +17,7 @@
       <div>
         <h1 class="text-3xl font-bold text-gray-900">{{ team.name }}</h1>
         <p class="text-sm text-gray-600 mt-1">{{ members.length }} members</p>
-        <p *ngIf="team.trip_budget" class="text-sm text-gray-600 mt-1">Budget: ${{ team.trip_budget | number:'1.2-2' }}</p>
+        <p *ngIf="team.trip_budget" class="text-sm text-gray-600 mt-1">Budget: ₹{{ team.trip_budget | number:'1.2-2' }}</p>
       </div>
       <div class="flex gap-2 flex-wrap items-center">
         <!-- Actions for all team members -->
@@ -71,10 +71,16 @@
           Balances
         </button>
         <button
-          (click)="activeTab = 'settlements'"
+          (click)="setActiveTab('settlements')"
           [class]="'py-2 px-1 border-b-2 font-medium text-sm ' + (activeTab === 'settlements' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900')"
         >
           Settlements
+        </button>
+        <button
+          (click)="activeTab = 'budgets'"
+          [class]="'py-2 px-1 border-b-2 font-medium text-sm ' + (activeTab === 'budgets' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900')"
+        >
+          Budgets
         </button>
       </div>
     </div>
@@ -96,6 +102,7 @@
         <app-expense-card
           *ngFor="let expense of expenses"
           [expense]="expense"
+          [members]="members"
           [showEditButton]="true"
           [showDeleteButton]="canDeleteExpense(expense)"
           (edit)="openEditExpenseDrawer($event)"
@@ -114,30 +121,288 @@
 
     <!-- Balances Tab -->
     <div *ngIf="activeTab === 'balances'" class="space-y-4">
-      <h2 class="text-xl font-semibold text-gray-900">Member Balances</h2>
+      <h2 class="text-xl font-semibold text-gray-900">Member Budget Balances</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div *ngFor="let member of members" class="bg-white rounded-lg shadow-md p-6">
-          <p class="text-gray-600 font-medium mb-2">{{ member.user_id }}</p>
+          <p class="text-gray-600 font-medium mb-2">{{ member.user_name }}</p>
+          <p class="text-sm text-gray-500 mb-1">Remaining Budget</p>
           <p [class]="'text-2xl font-bold ' + ((balances?.balances?.[member.user_id] || 0) >= 0 ? 'text-green-600' : 'text-red-600')">
-            {{ (balances?.balances?.[member.user_id] || 0) >= 0 ? '+' : '' }}{{ '$' }}{{ Math.abs(balances?.balances?.[member.user_id] || 0) | number:'1.2-2' }}
+            ₹{{ Math.abs(balances?.balances?.[member.user_id] || 0) | number:'1.2-2' }}
+          </p>
+          <p *ngIf="(balances?.balances?.[member.user_id] || 0) < 0" class="text-sm text-red-500 mt-1">
+            Over budget by ₹{{ Math.abs(balances?.balances?.[member.user_id] || 0) | number:'1.2-2' }}
           </p>
         </div>
       </div>
     </div>
 
     <!-- Settlements Tab -->
-    <div *ngIf="activeTab === 'settlements'" class="space-y-4">
+    <div *ngIf="activeTab === 'settlements'" class="space-y-6">
       <h2 class="text-xl font-semibold text-gray-900">Settlement Plan</h2>
-      <div *ngIf="settlements.length > 0" class="space-y-3">
-        <div *ngFor="let settlement of settlements" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p class="text-blue-900 font-medium">
-            {{ settlement.from_user.substring(0, 8) }}... owes {{ settlement.to_user.substring(0, 8) }}...
-            <span class="font-bold text-lg">{{ '$' }}{{ settlement.amount | number:'1.2-2' }}</span>
-          </p>
+      
+      <!-- Settlement Calculations -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Recommended Settlements</h3>
+        <div *ngIf="settlements.length > 0" class="space-y-3">
+          <div *ngFor="let settlement of settlements" class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex-1">
+              <p class="text-blue-900 font-medium">
+                {{ getPersonalizedUserName(settlement.from_user) }} 
+                <span [class]="settlement.from_user === currentUserId ? 'font-semibold' : ''">owe{{ settlement.from_user === currentUserId ? '' : 's' }}</span> 
+                {{ getPersonalizedUserName(settlement.to_user) }}
+                <span class="font-bold text-lg ml-2">₹{{ settlement.amount | number:'1.2-2' }}</span>
+              </p>
+            </div>
+            <div *ngIf="settlement.from_user === currentUserId" class="ml-4">
+              <button 
+                (click)="createSettlementRequest(settlement.to_user, settlement.amount)"
+                [disabled]="hasPendingSettlement(settlement.to_user)"
+                [ngClass]="{
+                  'bg-green-600 hover:bg-green-700': !hasPendingSettlement(settlement.to_user),
+                  'bg-gray-400 cursor-not-allowed': hasPendingSettlement(settlement.to_user)
+                }"
+                class="text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                {{ hasPendingSettlement(settlement.to_user) ? 'Request Pending' : 'Settle Up' }}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="settlements.length === 0" class="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+          <p class="text-green-900 font-medium">✅ All settled up!</p>
         </div>
       </div>
-      <div *ngIf="settlements.length === 0" class="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
-        <p class="text-green-900 font-medium">✅ All settled up!</p>
+
+      <!-- Pending Settlement Requests -->
+      <div *ngIf="settlementRequests.length > 0" class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Pending Settlement Requests</h3>
+        <div class="space-y-3">
+          <div *ngFor="let request of settlementRequests" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex-1">
+              <p class="text-yellow-900 font-medium">
+                <span class="font-semibold">
+                  {{ request.type === 'sent' ? 'You' : request.other_user_name }}
+                </span>
+                <span> requests to pay </span>
+                <span class="font-semibold">
+                  {{ request.type === 'sent' ? request.other_user_name : 'You' }}
+                </span>
+                <span class="font-bold text-lg ml-2 text-green-600">₹{{ request.amount | number:'1.2-2' }}</span>
+              </p>
+              <div *ngIf="request.message" class="text-sm text-yellow-700 mt-1">{{ request.message }}</div>
+            </div>
+            <div class="ml-4 flex items-center space-x-3">
+              <!-- Show approve button for received requests (when current user gets paid) -->
+              <div *ngIf="request.type === 'received' && request.status === 'pending'">
+                <button 
+                  (click)="approveSettlement(request.id)"
+                  class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm transition-colors">
+                  Approve Payment
+                </button>
+              </div>
+              <!-- Status indicator -->
+              <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                {{ request.status === 'pending' ? 
+                    (request.type === 'sent' ? 'Awaiting Approval' : 'Approve to Receive') : 
+                    request.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settlement Requests -->
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Settlement Requests</h3>
+        <div *ngIf="settlementRequests.length > 0" class="space-y-3">
+          <div *ngFor="let request of settlementRequests" 
+               [class]="'border rounded-lg p-4 ' + (request.type === 'received' && request.status === 'pending' ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-gray-50')">
+            
+            <!-- Received settlement request (needs approval) -->
+            <div *ngIf="request.type === 'received' && request.status === 'pending'" class="flex items-center justify-between">
+              <div>
+                <p class="font-medium text-orange-900">
+                  {{ request.other_user_name }} sent you a settlement request
+                </p>
+                <p class="text-lg font-bold text-orange-700">Amount: ₹{{ request.amount | number:'1.2-2' }}</p>
+                <p *ngIf="request.message" class="text-sm text-orange-600 mt-1">{{ request.message }}</p>
+                <p class="text-xs text-orange-500 mt-1">
+                  Requested {{ request.created_at | date:'short' }} • Expires {{ request.expires_at | date:'short' }}
+                </p>
+              </div>
+              <div class="flex gap-2">
+                <button 
+                  (click)="approveSettlement(request.id)"
+                  class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                  Approve Settlement
+                </button>
+              </div>
+            </div>
+
+            <!-- Sent settlement request (waiting for approval) -->
+            <div *ngIf="request.type === 'sent' && request.status === 'pending'">
+              <p class="font-medium text-blue-700">
+                Waiting for {{ request.other_user_name }} to approve settlement
+              </p>
+              <p class="text-lg font-bold text-blue-600">Amount: ₹{{ request.amount | number:'1.2-2' }}</p>
+              <p *ngIf="request.message" class="text-sm text-blue-500 mt-1">{{ request.message }}</p>
+              <p class="text-xs text-blue-400 mt-1">
+                Sent {{ request.created_at | date:'short' }} • Expires {{ request.expires_at | date:'short' }}
+              </p>
+            </div>
+
+            <!-- Completed/approved settlement -->
+            <div *ngIf="request.status === 'approved'">
+              <p [class]="'font-medium ' + (request.type === 'received' ? 'text-green-700' : 'text-blue-700')">
+                Settlement {{ request.type === 'received' ? 'received from' : 'sent to' }} {{ request.other_user_name }}
+              </p>
+              <p class="text-lg font-bold text-green-600">Amount: ₹{{ request.amount | number:'1.2-2' }} ✅</p>
+              <p class="text-xs text-gray-500 mt-1">Completed {{ request.created_at | date:'short' }}</p>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="settlementRequests.length === 0" class="text-center text-gray-500 py-4">
+          No settlement requests yet.
+        </div>
+      </div>
+    </div>
+
+    <!-- Budgets Tab -->
+    <div *ngIf="activeTab === 'budgets'" class="space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-gray-900">Budget Management</h2>
+        <div class="flex gap-3">
+          <button 
+            (click)="toggleBudgetEditMode()"
+            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+            {{ budgetEditMode ? 'Cancel Edit' : 'Edit Budgets' }}
+          </button>
+          <button 
+            *ngIf="isTeamCreator()"
+            (click)="recalculateBudgetsEqually()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+            Reset to Equal Split
+          </button>
+        </div>
+      </div>
+      
+      <!-- Budget Summary -->
+      <div *ngIf="budgetInsights" class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Team Budget Overview</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">₹{{ budgetInsights.team_summary.total_initial_budget | number:'1.2-2' }}</div>
+            <div class="text-sm text-gray-600">Total Budget</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-green-600">₹{{ budgetInsights.team_summary.total_remaining_budget | number:'1.2-2' }}</div>
+            <div class="text-sm text-gray-600">Remaining</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-orange-600">₹{{ budgetInsights.team_summary.total_spent | number:'1.2-2' }}</div>
+            <div class="text-sm text-gray-600">Total Spent</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-purple-600">{{ budgetInsights.team_summary.budget_utilization_percentage | number:'1.0-0' }}%</div>
+            <div class="text-sm text-gray-600">Utilized</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget Recommendations -->
+      <div *ngIf="budgetInsights && budgetInsights.recommendations.length > 0" 
+           class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h4 class="font-semibold text-yellow-800 mb-2">💡 Recommendations</h4>
+        <ul class="space-y-1">
+          <li *ngFor="let recommendation of budgetInsights.recommendations" 
+              class="text-sm text-yellow-700">
+            • {{ recommendation }}
+          </li>
+        </ul>
+      </div>
+
+      <!-- Individual Member Budgets -->
+      <div class="space-y-4">
+        <h3 class="text-lg font-semibold text-gray-900">Individual Budgets</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div *ngFor="let member of budgetStatus" 
+               class="bg-white rounded-lg border-2 p-4"
+               [class.border-red-200]="member.is_over_budget"
+               [class.border-green-200]="!member.is_over_budget && member.remaining_budget > 0"
+               [class.border-gray-200]="!member.is_over_budget && member.remaining_budget === 0">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                  <span class="text-gray-600 text-sm font-medium">
+                    {{ member.user_name.charAt(0).toUpperCase() }}
+                  </span>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-900">{{ member.user_name }}</h4>
+                  <p class="text-sm text-gray-500">{{ member.user_email }}</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <div [class]="'text-lg font-bold ' + (member.is_over_budget ? 'text-red-600' : member.remaining_budget > 0 ? 'text-green-600' : 'text-gray-600')">
+                  ₹{{ member.remaining_budget | number:'1.2-2' }}
+                </div>
+                <div class="text-xs text-gray-500">remaining</div>
+              </div>
+            </div>
+            
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Initial Budget:</span>
+                <div *ngIf="!budgetEditMode">
+                  <span class="font-medium">₹{{ member.initial_budget | number:'1.2-2' }}</span>
+                </div>
+                <div *ngIf="budgetEditMode" class="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    [(ngModel)]="editingBudgets[member.user_id]"
+                    min="0" 
+                    step="0.01"
+                    class="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="0.00">
+                  <button 
+                    (click)="saveMemberBudget(member.user_id)"
+                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition-colors">
+                    Save
+                  </button>
+                </div>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Current Balance:</span>
+                <span [class]="member.current_balance >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ member.current_balance >= 0 ? '+' : '' }}₹{{ member.current_balance | number:'1.2-2' }}
+                </span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Utilization:</span>
+                <span class="font-medium">{{ member.budget_utilization_percentage | number:'1.0-0' }}%</span>
+              </div>
+            </div>
+            
+            <!-- Budget utilization bar -->
+            <div class="mt-3">
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="h-2 rounded-full transition-all duration-300"
+                  [class.bg-green-400]="member.budget_utilization_percentage <= 50"
+                  [class.bg-yellow-400]="member.budget_utilization_percentage > 50 && member.budget_utilization_percentage <= 80"
+                  [class.bg-red-400]="member.budget_utilization_percentage > 80"
+                  [style.width.%]="Math.min(member.budget_utilization_percentage, 100)">
+                </div>
+              </div>
+            </div>
+            
+            <div *ngIf="member.is_over_budget" class="mt-2 text-xs text-red-600 font-medium">
+              ⚠️ Over budget by ₹{{ Math.abs(member.remaining_budget) | number:'1.2-2' }}
+            </div>
+            <div *ngIf="!member.is_over_budget && member.available_to_pay" class="mt-2 text-xs text-green-600 font-medium">
+              ✅ Available to cover expenses
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

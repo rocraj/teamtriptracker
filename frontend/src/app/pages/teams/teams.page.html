@@ -23,6 +23,62 @@
       </button>
     </div>
 
+    <!-- My Wallet Card -->
+    <div *ngIf="Object.keys(userWalletData).length > 0" class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-6 border border-slate-200 shadow-lg">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <div class="p-3 rounded-2xl"
+               [class.bg-green-100]="getWalletStatus() === 'positive'"
+               [class.bg-red-100]="getWalletStatus() === 'negative'"
+               [class.bg-gray-100]="getWalletStatus() === 'neutral'">
+            <svg class="w-8 h-8"
+                 [class.text-green-600]="getWalletStatus() === 'positive'"
+                 [class.text-red-600]="getWalletStatus() === 'negative'"
+                 [class.text-gray-600]="getWalletStatus() === 'neutral'"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">💳 My Wallet</h3>
+            <p class="text-sm text-slate-600">Net balance across all teams</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-3xl font-bold"
+               [class.text-green-600]="getWalletStatus() === 'positive'"
+               [class.text-red-600]="getWalletStatus() === 'negative'"
+               [class.text-slate-600]="getWalletStatus() === 'neutral'">
+            {{ totalNetBalance >= 0 ? '+' : '' }}₹{{ totalNetBalance | number:'1.2-2' }}
+          </div>
+          <div class="text-xs text-slate-500 mt-1">
+            <span *ngIf="getWalletStatus() === 'positive'" class="text-green-600">✓ You're owed money</span>
+            <span *ngIf="getWalletStatus() === 'negative'" class="text-red-600">⚠️ You owe money</span>
+            <span *ngIf="getWalletStatus() === 'neutral'" class="text-slate-600">⚖️ All settled up</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Quick breakdown -->
+      <div *ngIf="Object.keys(userWalletData).length > 1" class="mt-4 pt-4 border-t border-slate-200">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div *ngFor="let team of teams" 
+               class="bg-white/60 rounded-lg p-3 text-center">
+            <div *ngIf="userWalletData[team.id]">
+              <div class="text-sm font-medium text-slate-700 truncate">{{ team.name }}</div>
+              <div class="text-lg font-bold"
+                   [class.text-green-600]="userWalletData[team.id].current_balance > 0"
+                   [class.text-red-600]="userWalletData[team.id].current_balance < 0"
+                   [class.text-slate-600]="userWalletData[team.id].current_balance === 0">
+                {{ userWalletData[team.id].current_balance >= 0 ? '+' : '' }}₹{{ userWalletData[team.id].current_balance | number:'1.2-2' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Create Team Form -->
     <div *ngIf="showCreateForm" class="bg-white rounded-lg shadow-md p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Create New Team</h2>

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import create_db_and_tables, get_session
 from app.services.category import ExpenseCategoryService
-from app.api import auth, teams, expenses, summary, categories
+from app.api import auth, teams, expenses, summary, categories, budget, settlement_requests
 
 # Initialize settings
 settings = get_settings()
@@ -32,6 +32,8 @@ app.include_router(teams.router)
 app.include_router(expenses.router)
 app.include_router(categories.router)
 app.include_router(summary.router)
+app.include_router(budget.router, prefix="/teams", tags=["budget"])
+app.include_router(settlement_requests.router)
 
 
 @app.on_event("startup")

@@ -110,7 +110,9 @@ class ExpenseService:
                     "id": category.id,
                     "name": category.name,
                     "emoji": category.emoji,
-                    "is_default": category.is_default
+                    "is_default": category.is_default,
+                    "created_at": category.created_at,
+                    "modified_at": category.modified_at
                 }
         
         # Load team custom category if present
@@ -141,3 +143,50 @@ class ExpenseService:
         """Get all expenses for a team with category details."""
         expenses = ExpenseService.get_team_expenses(session, team_id, limit, offset)
         return [ExpenseService.enrich_expense_with_categories(session, expense) for expense in expenses]
+    
+    @staticmethod
+    def update_expense(
+        session: Session,
+        expense_id: str,
+        total_amount: Optional[float] = None,
+        participants: Optional[List[str]] = None,
+        category_id: Optional[str] = None,
+        team_category_id: Optional[str] = None,
+        note: Optional[str] = None
+    ) -> Optional[Expense]:
+        """Update an existing expense."""
+        expense = session.exec(
+            select(Expense).where(Expense.id == expense_id)
+        ).first()
+        
+        if not expense:
+            return None
+        
+        # Update only provided fields
+        if total_amount is not None:
+            expense.total_amount = total_amount
+        
+        if participants is not None:
+            expense.participants = json.dumps([str(p) for p in participants])
+        
+        if category_id is not None:
+            expense.category_id = category_id
+            # Clear team category if regular category is set
+            if category_id:
+                expense.team_category_id = None
+        
+        if team_category_id is not None:
+            expense.team_category_id = team_category_id
+            # Clear regular category if team category is set
+            if team_category_id:
+                expense.category_id = None
+        
+        if note is not None:
+            expense.note = note
+        
+        expense.modified_at = datetime.utcnow()
+        session.add(expense)
+        session.commit()
+        session.refresh(expense)
+        
+        return expense

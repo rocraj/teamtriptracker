@@ -78,8 +78,48 @@
                 placeholder="0.00"
                 step="0.01"
                 min="0.01"
+                (input)="onAmountChange()"
                 class="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required>
+            </div>
+          </div>
+
+          <!-- Payer Suggestion Snackbar -->
+          <div *ngIf="showPayerSuggestion && payerSuggestion" 
+               class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-blue-800">
+                  <strong>💡 Budget Tip:</strong> 
+                  {{ payerSuggestion.suggested_payer.user_name }} has 
+                  ₹{{ payerSuggestion.suggested_payer.remaining_budget | number:'1.2-2' }} 
+                  available budget and could cover this expense.
+                </p>
+                <p class="text-xs text-blue-600 mt-1">
+                  Confidence: {{ payerSuggestion.confidence_score | number:'1.0-0' }}%
+                </p>
+              </div>
+            </div>
+            <div class="flex space-x-2">
+              <button 
+                type="button"
+                (click)="acceptPayerSuggestion()"
+                class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                Got it
+              </button>
+              <button 
+                type="button"
+                (click)="dismissPayerSuggestion()"
+                class="text-gray-400 hover:text-gray-600">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -188,8 +228,8 @@
 
           </div>
 
-          <!-- Split Type (hidden in edit mode) -->
-          <div *ngIf="!isEditMode">
+          <!-- Split Type -->
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-3">
               How should this be split?
             </label>
@@ -222,7 +262,7 @@
           <!-- Participants Selection -->
           <div *ngIf="form.splitType === 'selected' || isEditMode">
             <label class="block text-sm font-medium text-gray-700 mb-3">
-              {{ isEditMode ? 'Participants' : 'Select Participants' }}
+              Select Participants
             </label>
             
             <div class="space-y-2" *ngIf="!isLoading && teamMembers.length > 0">
@@ -233,31 +273,26 @@
                   type="checkbox"
                   [checked]="isParticipantSelected(member.user_id)"
                   (change)="toggleParticipant(member.user_id)"
-                  [disabled]="isEditMode"
-                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50">
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                 <div class="ml-3 flex items-center">
                   <img 
-                    *ngIf="member.user?.photo_url" 
-                    [src]="member.user.photo_url" 
-                    [alt]="member.user.name"
-                    class="w-8 h-8 rounded-full mr-3">
+                    *ngIf="member.photo_url" 
+                    [src]="member.photo_url" 
+                    [alt]="member.user_name"
+                    class="w-8 h-8 rounded-full mr-3 object-cover">
                   <div 
-                    *ngIf="!member.user?.photo_url"
+                    *ngIf="!member.photo_url"
                     class="w-8 h-8 rounded-full bg-gray-300 mr-3 flex items-center justify-center">
                     <span class="text-gray-600 text-sm font-medium">
-                      {{ member.user.name.charAt(0).toUpperCase() || '?' }}
+                      {{ member.user_name.charAt(0).toUpperCase() || '?' }}
                     </span>
                   </div>
                   <div>
-                    <div class="text-sm font-medium text-gray-900">{{ member.user.name || 'Unknown User' }}</div>
-                    <div class="text-xs text-gray-500">{{ member.user.email || '' }}</div>
+                    <div class="text-sm font-medium text-gray-900">{{ member.user_name || 'Unknown User' }}</div>
+                    <div class="text-xs text-gray-500">{{ member.user_email || '' }}</div>
                   </div>
                 </div>
               </label>
-              
-              <div *ngIf="isEditMode" class="text-xs text-gray-500 italic p-2">
-                Participant selection cannot be changed when editing an expense
-              </div>
             </div>
             
             <div *ngIf="isLoading" class="text-center py-4">
@@ -278,7 +313,7 @@
                   Split among {{ getParticipantCount() }} participant(s)
                 </p>
                 <p class="text-sm text-blue-600">
-                  Each person pays: ${{ getAmountPerParticipant().toFixed(2) }}
+                  Each person pays: ₹{{ getAmountPerParticipant().toFixed(2) }}
                 </p>
               </div>
             </div>

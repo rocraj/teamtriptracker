@@ -12,18 +12,48 @@ class Settlement:
         self.amount = round(amount, 2)
     
     def __repr__(self):
-        return f"{self.from_user} owes {self.to_user} ${self.amount}"
+        return f"{self.from_user} owes {self.to_user} ₹{self.amount}"
 
 
-def calculate_balances(
+def calculate_budget_balances(
+    expenses: List[dict],
+    team_members: List[UUID],
+    member_budgets: Dict[UUID, float]
+) -> Dict[UUID, float]:
+    """
+    Calculate remaining budget for each user based on actual payments made.
+    
+    Returns: {user_id: remaining_budget}
+    remaining_budget = initial_budget - total_amount_paid_by_user
+    """
+    # Initialize with initial budgets
+    remaining_balances: Dict[UUID, float] = {member: member_budgets.get(member, 0.0) for member in team_members}
+    
+    # Subtract actual payments made by each user
+    for expense in expenses:
+        payer_id = expense["payer_id"]
+        total_amount = expense["total_amount"]
+        
+        # Convert payer_id to UUID if it's a string
+        if isinstance(payer_id, str):
+            payer_id = UUID(payer_id)
+        
+        # Reduce the payer's remaining budget by the amount they actually paid
+        if payer_id in remaining_balances:
+            remaining_balances[payer_id] -= total_amount
+    
+    return remaining_balances
+
+
+def calculate_settlement_balances(
     expenses: List[dict],
     team_members: List[UUID]
 ) -> Dict[UUID, float]:
     """
-    Calculate net balance for each user.
+    Calculate settlement balances for each user (who owes what for settlements).
     
-    Positive balance = owed money
-    Negative balance = owes money
+    Positive balance = owed money (others owe this person)
+    Negative balance = owes money (this person owes others)
     """
     balances: Dict[UUID, float] = {member: 0.0 for member in team_members}
     
@@ -32,15 +62,34 @@ def calculate_balances(
         participants = expense["participants"]
         total_amount = expense["total_amount"]
         
-        # Add to payer's balance (they paid)
-        balances[payer_id] += total_amount
+        # Convert payer_id to UUID if it's a string
+        if isinstance(payer_id, str):
+            payer_id = UUID(payer_id)
         
-        # Split among participants
-        per_person_share = total_amount / len(participants)
+        # Convert participant IDs to UUIDs if they're strings
+        uuid_participants = []
         for participant in participants:
-            balances[participant] -= per_person_share
+            if isinstance(participant, str):
+                uuid_participants.append(UUID(participant))
+            else:
+                uuid_participants.append(participant)
+        
+        # Only include payers and participants who are current team members
+        if payer_id in balances:
+            balances[payer_id] += total_amount
+        
+        # Split among participants who are current team members
+        valid_participants = [p for p in uuid_participants if p in balances]
+        if valid_participants:
+            per_person_share = total_amount / len(valid_participants)
+            for participant in valid_participants:
+                balances[participant] -= per_person_share
     
     return balances
+
+
+# Alias for backward compatibility with existing settlement endpoints
+calculate_balances = calculate_settlement_balances
 
 
 def calculate_settlements(balances: Dict[UUID, float]) -> List[Settlement]:

@@ -2,13 +2,13 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import axios, { AxiosInstance } from 'axios';
 import { environment } from '../../environments/environment';
-import { Expense } from '../models/index';
+import { BudgetStatus, BudgetInsights, PayerSuggestion } from '../models/index';
 import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class ExpenseService {
+export class BudgetService {
   private api: AxiosInstance;
 
   constructor(private authService: AuthService) {
@@ -21,20 +21,27 @@ export class ExpenseService {
   private getHeaders() {
     const token = this.authService.getToken();
     return {
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     };
   }
 
-  createExpense(expenseData: {
-    team_id: string;
-    total_amount: number;
-    participants: string[];
-    category_id?: string;
-    team_category_id?: string;
-    note?: string;
-  }): Observable<Expense> {
+  getBudgetStatus(teamId: string): Observable<BudgetStatus[]> {
     return new Observable(observer => {
-      this.api.post<Expense>('/expenses', expenseData, {
+      this.api.get<{budget_status: BudgetStatus[]}>(`/teams/${teamId}/budget-status`, {
+        headers: this.getHeaders()
+      })
+      .then(response => {
+        observer.next(response.data.budget_status);
+        observer.complete();
+      })
+      .catch(error => observer.error(error));
+    });
+  }
+
+  getBudgetInsights(teamId: string): Observable<BudgetInsights> {
+    return new Observable(observer => {
+      this.api.get<BudgetInsights>(`/teams/${teamId}/budget-insights`, {
         headers: this.getHeaders()
       })
       .then(response => {
@@ -45,58 +52,42 @@ export class ExpenseService {
     });
   }
 
-  listExpenses(teamId: string, limit: number = 100, offset: number = 0): Observable<Expense[]> {
+  suggestOptimalPayer(teamId: string, amount: number): Observable<PayerSuggestion | null> {
     return new Observable(observer => {
-      this.api.get<Expense[]>(`/expenses/${teamId}?limit=${limit}&offset=${offset}`, {
-        headers: this.getHeaders()
-      })
+      this.api.post<{suggestion: PayerSuggestion | null, message?: string}>(`/teams/${teamId}/suggest-payer`, 
+        { amount }, 
+        { headers: this.getHeaders() }
+      )
       .then(response => {
-        observer.next(response.data);
+        observer.next(response.data.suggestion);
         observer.complete();
       })
       .catch(error => observer.error(error));
     });
   }
 
-  getExpense(teamId: string, expenseId: string): Observable<Expense> {
+  updateMemberBudget(teamId: string, userId: string, budget: number): Observable<boolean> {
     return new Observable(observer => {
-      this.api.get<Expense>(`/expenses/${teamId}/${expenseId}`, {
-        headers: this.getHeaders()
-      })
+      this.api.put<{success: boolean}>(`/teams/${teamId}/members/${userId}/budget`, 
+        { budget }, 
+        { headers: this.getHeaders() }
+      )
       .then(response => {
-        observer.next(response.data);
+        observer.next(response.data.success);
         observer.complete();
       })
       .catch(error => observer.error(error));
     });
   }
 
-  updateExpense(expenseId: string, expenseData: {
-    total_amount?: number;
-    participants?: string[];
-    category_id?: string;
-    team_category_id?: string;
-    note?: string;
-  }): Observable<Expense> {
+  recalculateBudgetsEqually(teamId: string): Observable<boolean> {
     return new Observable(observer => {
-      this.api.put<Expense>(`/expenses/${expenseId}`, expenseData, {
-        headers: this.getHeaders()
-      })
+      this.api.post<{success: boolean}>(`/teams/${teamId}/recalculate-budgets`, 
+        {}, 
+        { headers: this.getHeaders() }
+      )
       .then(response => {
-        observer.next(response.data);
-        observer.complete();
-      })
-      .catch(error => observer.error(error));
-    });
-  }
-
-  deleteExpense(expenseId: string): Observable<any> {
-    return new Observable(observer => {
-      this.api.delete(`/expenses/${expenseId}`, {
-        headers: this.getHeaders()
-      })
-      .then(response => {
-        observer.next(response.data);
+        observer.next(response.data.success);
         observer.complete();
       })
       .catch(error => observer.error(error));

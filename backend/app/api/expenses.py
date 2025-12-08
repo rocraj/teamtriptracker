@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.core.database import get_session
 from app.core.security import get_current_user_id
-from app.models.schemas import ExpenseCreate, ExpenseResponse, Team
+from app.models.schemas import ExpenseCreate, ExpenseUpdate, ExpenseResponse, Team
 from app.services.expense import ExpenseService
 from app.services.team import TeamService
 
@@ -90,6 +90,52 @@ def get_expense(
         )
     
     return ExpenseService.enrich_expense_with_categories(session, expense)
+
+
+@router.put("/{expense_id}", response_model=ExpenseResponse)
+def update_expense(
+    expense_id: str,
+    expense_data: ExpenseUpdate,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update an existing expense."""
+    # Get the existing expense
+    expense = ExpenseService.get_expense(session, expense_id)
+    if not expense:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Expense not found"
+        )
+    
+    # Verify user is a team member
+    user_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+    members = TeamService.get_team_members(session, str(expense.team_id))
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    # Verify user is the payer (only payer can edit their own expenses)
+    if str(expense.payer_id) != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only edit expenses you created"
+        )
+    
+    # Update the expense
+    updated_expense = ExpenseService.update_expense(
+        session,
+        expense_id,
+        expense_data.total_amount,
+        expense_data.participants,
+        expense_data.category_id,
+        expense_data.team_category_id,
+        expense_data.note
+    )
+    
+    return ExpenseService.enrich_expense_with_categories(session, updated_expense)
 
 
 @router.delete("/{expense_id}")

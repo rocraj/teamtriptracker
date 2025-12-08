@@ -1,8 +1,14 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { formatCurrency, getRelativeTime } from '../../utils/format';
+import { UserNamePipe } from '../../pipes';
+import { TeamMember } from '../../models';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-expense-card',
+  standalone: true,
+  imports: [CommonModule, UserNamePipe],
   template: `
     <div class="bg-white rounded-lg shadow-md p-4 sm:p-6 border-l-4" [style.borderLeftColor]="expense.type_emoji">
       <div class="flex items-start justify-between">
@@ -13,7 +19,7 @@ import { formatCurrency, getRelativeTime } from '../../utils/format';
           </div>
           <p class="text-sm text-gray-600">{{ expense.note }}</p>
           <p class="text-xs text-gray-500 mt-2">{{ getRelativeTime(expense.created_at) }}</p>
-          <p class="text-xs text-gray-500">Paid by: {{ expense.payer_id }}</p>
+          <p class="text-xs text-gray-500">Paid by: {{ getPersonalizedUserName(expense.payer_id) }}</p>
         </div>
         <div class="text-right">
           <div class="flex items-center space-x-2 mb-2">
@@ -36,7 +42,7 @@ import { formatCurrency, getRelativeTime } from '../../utils/format';
               🗑️
             </button>
           </div>
-          <p class="text-2xl font-bold text-gray-900">{{ '$' }}{{ expense.total_amount | number:'1.2-2' }}</p>
+          <p class="text-2xl font-bold text-gray-900">₹{{ expense.total_amount | number:'1.2-2' }}</p>
           <p class="text-xs text-gray-500">{{ expense.participants.length }} participants</p>
         </div>
       </div>
@@ -45,13 +51,32 @@ import { formatCurrency, getRelativeTime } from '../../utils/format';
 })
 export class ExpenseCardComponent {
   @Input() expense: any;
+  @Input() members: TeamMember[] = [];
   @Input() showEditButton: boolean = false;
   @Input() showDeleteButton: boolean = false;
   @Output() edit = new EventEmitter<any>();
   @Output() delete = new EventEmitter<any>();
 
+  currentUser: any = null;
   formatCurrency = formatCurrency;
   getRelativeTime = getRelativeTime;
+
+  constructor(private authService: AuthService) {}
+
+  ngOnInit(): void {
+    this.authService.currentUser$.subscribe(user => {
+      this.currentUser = user;
+    });
+  }
+
+  getPersonalizedUserName(userId: string): string {
+    if (this.currentUser && userId === this.currentUser.id) {
+      return 'You';
+    }
+    // Try to get name from members array
+    const member = this.members.find(m => m.user_id === userId);
+    return member?.user_name || 'Unknown User';
+  }
 
   onEdit(): void {
     this.edit.emit(this.expense);

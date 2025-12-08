@@ -18,7 +18,7 @@ engine = create_engine(
 
 def create_db_and_tables():
     """Create all database tables."""
-    from app.models.schemas import SQLModel
+    from app.models.schemas import SQLModel, SettlementRequest  # Import all models
     SQLModel.metadata.create_all(engine)
 
 

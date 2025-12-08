@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface ExpenseCategory {
@@ -23,13 +23,14 @@ export interface TeamCustomCategory {
 }
 
 export interface TeamCategoriesResponse {
-  default_categories: ExpenseCategory[];
-  team_categories: TeamCustomCategory[];
+  default: ExpenseCategory[];
+  custom: TeamCustomCategory[];
 }
 
 export interface CreateCustomCategoryRequest {
   name: string;
   emoji: string;
+  team_id: string;
 }
 
 @Injectable({

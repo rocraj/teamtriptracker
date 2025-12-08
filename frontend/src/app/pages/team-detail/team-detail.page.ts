@@ -2,10 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TeamService } from '../../services/team.service';
 import { ExpenseService } from '../../services/expense.service';
+import { BudgetService } from '../../services/budget.service';
 import { SummaryService } from '../../services/summary.service';
+import { SettlementService, SettlementRequest } from '../../services/settlement.service';
 import { AuthService } from '../../services/auth.service';
 import { getErrorMessage } from '../../utils/validation';
-import { Expense } from '../../models/index';
+import { Expense, BudgetStatus, BudgetInsights } from '../../models/index';
 import { ExpenseDrawerComponent } from '../../components/expense-drawer/expense-drawer.component';
 
 @Component({
@@ -20,9 +22,11 @@ export class TeamDetailPageComponent implements OnInit {
   members: any[] = [];
   balances: any = {};
   settlements: any[] = [];
+  budgetStatus: BudgetStatus[] = [];
+  budgetInsights: BudgetInsights | null = null;
   loading: boolean = true;
   error: string = '';
-  activeTab: 'expenses' | 'balances' | 'settlements' = 'expenses';
+  activeTab: 'expenses' | 'balances' | 'settlements' | 'budgets' = 'expenses';
   showInviteModal: boolean = false;
   showDeleteModal: boolean = false;
   showEditModal: boolean = false;
@@ -34,6 +38,9 @@ export class TeamDetailPageComponent implements OnInit {
   editTeamBudget: number | null = null;
   deleteConfirmationName: string = '';
   selectedExpense: any = null;
+  budgetEditMode: boolean = false;
+  editingBudgets: { [userId: string]: number } = {};
+  settlementRequests: SettlementRequest[] = [];
   Math = Math;
 
   constructor(
@@ -41,7 +48,9 @@ export class TeamDetailPageComponent implements OnInit {
     private router: Router,
     private teamService: TeamService,
     private expenseService: ExpenseService,
+    private budgetService: BudgetService,
     private summaryService: SummaryService,
+    private settlementService: SettlementService,
     private authService: AuthService
   ) {}
 
@@ -65,6 +74,8 @@ export class TeamDetailPageComponent implements OnInit {
         this.loadMembers();
         this.loadExpenses();
         this.loadSummaries();
+        this.loadBudgetData();
+        this.loadSettlementRequests();
       },
       (error) => {
         this.error = getErrorMessage(error);
@@ -107,6 +118,8 @@ export class TeamDetailPageComponent implements OnInit {
 
     this.summaryService.getSettlements(this.teamId).subscribe(
       (response) => {
+        console.log('Settlements response:', response);
+        console.log('Current members:', this.members.map(m => ({ user_id: m.user_id, name: m.user_name })));
         this.settlements = response.settlements;
         this.loading = false;
       },
@@ -162,13 +175,17 @@ export class TeamDetailPageComponent implements OnInit {
   }
 
   onExpenseCreated(expense: any) {
-    // Refresh the expenses list
+    // Refresh all data that depends on expenses
     this.loadExpenses();
+    this.loadSummaries(); // Reload balances and settlements
+    this.loadBudgetData(); // Reload budget status and insights
   }
 
   onExpenseUpdated(expense: any) {
-    // Refresh the expenses list
+    // Refresh all data that depends on expenses
     this.loadExpenses();
+    this.loadSummaries(); // Reload balances and settlements
+    this.loadBudgetData(); // Reload budget status and insights
   }
 
   canDeleteExpense(expense: any): boolean {
@@ -177,6 +194,119 @@ export class TeamDetailPageComponent implements OnInit {
       expense.payer_id === this.currentUserId || 
       this.isTeamCreator()
     ));
+  }
+
+  getPersonalizedUserName(userId: string): string {
+    // Show "You" if it's the current user, otherwise use the member name
+    if (userId === this.currentUserId) {
+      return 'You';
+    }
+    
+    // Find the member and return their name
+    const member = this.members.find(m => m.user_id === userId);
+    return member?.user_name || 'Unknown User';
+  }
+
+  // Budget management methods
+  loadBudgetData(): void {
+    this.loadBudgetStatus();
+    this.loadBudgetInsights();
+  }
+
+  loadBudgetStatus(): void {
+    this.budgetService.getBudgetStatus(this.teamId).subscribe({
+      next: (status) => {
+        this.budgetStatus = status;
+      },
+      error: (error) => {
+        console.error('Error loading budget status:', error);
+      }
+    });
+  }
+
+  loadBudgetInsights(): void {
+    this.budgetService.getBudgetInsights(this.teamId).subscribe({
+      next: (insights) => {
+        this.budgetInsights = insights;
+      },
+      error: (error) => {
+        console.error('Error loading budget insights:', error);
+      }
+    });
+  }
+
+  updateMemberBudget(userId: string, newBudget: number): void {
+    this.budgetService.updateMemberBudget(this.teamId, userId, newBudget).subscribe({
+      next: (success) => {
+        if (success) {
+          this.loadBudgetData(); // Refresh budget data
+        }
+      },
+      error: (error) => {
+        console.error('Error updating budget:', error);
+      }
+    });
+  }
+
+  recalculateBudgetsEqually(): void {
+    this.budgetService.recalculateBudgetsEqually(this.teamId).subscribe({
+      next: (success) => {
+        if (success) {
+          this.loadBudgetData(); // Refresh budget data
+          // Exit edit mode after recalculation
+          this.budgetEditMode = false;
+          this.editingBudgets = {};
+        }
+      },
+      error: (error) => {
+        console.error('Error recalculating budgets:', error);
+      }
+    });
+  }
+
+  toggleBudgetEditMode(): void {
+    this.budgetEditMode = !this.budgetEditMode;
+    
+    if (this.budgetEditMode) {
+      // Initialize editing budgets with current values
+      this.editingBudgets = {};
+      this.budgetStatus.forEach(member => {
+        this.editingBudgets[member.user_id] = member.initial_budget;
+      });
+    } else {
+      // Clear editing state
+      this.editingBudgets = {};
+    }
+  }
+
+  saveMemberBudget(userId: string): void {
+    const newBudget = this.editingBudgets[userId];
+    
+    if (newBudget === undefined || newBudget < 0) {
+      console.error('Invalid budget amount');
+      return;
+    }
+    
+    this.budgetService.updateMemberBudget(this.teamId, userId, newBudget).subscribe({
+      next: (success) => {
+        if (success) {
+          this.loadBudgetData(); // Refresh budget data
+          // Update the editing value to match the new saved value
+          const updatedMember = this.budgetStatus.find(m => m.user_id === userId);
+          if (updatedMember) {
+            this.editingBudgets[userId] = updatedMember.initial_budget;
+          }
+        }
+      },
+      error: (error) => {
+        console.error('Error updating budget:', error);
+        // Reset editing value to original
+        const originalMember = this.budgetStatus.find(m => m.user_id === userId);
+        if (originalMember) {
+          this.editingBudgets[userId] = originalMember.initial_budget;
+        }
+      }
+    });
   }
 
   openDeleteModal(): void {
@@ -275,12 +405,110 @@ export class TeamDetailPageComponent implements OnInit {
         this.loading = false;
         this.loadExpenses(); // Reload expenses
         this.loadSummaries(); // Reload balances and settlements
+        this.loadBudgetData(); // Reload budget status and insights
         this.closeDeleteExpenseModal();
       },
       (error) => {
         this.loading = false;
         this.error = getErrorMessage(error);
         this.closeDeleteExpenseModal();
+      }
+    );
+  }
+
+  // Tab management
+  setActiveTab(tab: 'expenses' | 'balances' | 'settlements' | 'budgets'): void {
+    this.activeTab = tab;
+    
+    // Refresh data when switching to specific tabs
+    if (tab === 'settlements') {
+      this.loadSettlementRequests();
+      this.loadSummaries(); // Refresh settlements calculation
+    } else if (tab === 'budgets') {
+      this.loadBudgetData();
+    }
+  }
+
+  // Settlement request methods
+  loadSettlementRequests(): void {
+    this.settlementService.getUserSettlementRequests(this.teamId).subscribe(
+      (response) => {
+        this.settlementRequests = response.settlement_requests;
+      },
+      (error) => {
+        this.error = getErrorMessage(error);
+      }
+    );
+  }
+
+  hasPendingSettlement(toUserId: string): boolean {
+    return this.settlementRequests.some(request => 
+      request.type === 'sent' &&
+      request.other_user_id === toUserId &&
+      request.status === 'pending'
+    );
+  }
+
+  createSettlementRequest(toUserId: string, amount: number): void {
+    console.log('Creating settlement request:', { 
+      teamId: this.teamId, 
+      toUserId, 
+      amount, 
+      currentUserId: this.currentUserId,
+      members: this.members.map(m => ({ user_id: m.user_id, name: m.user_name }))
+    });
+    
+    // Validate that toUserId is a valid team member
+    const toMember = this.members.find(m => m.user_id === toUserId);
+    if (!toMember) {
+      this.error = 'Invalid recipient: User is not a team member';
+      return;
+    }
+
+    // Check if there's already a pending settlement
+    if (this.hasPendingSettlement(toUserId)) {
+      this.error = 'A settlement request is already pending with this user';
+      return;
+    }
+    
+    this.settlementService.createSettlementRequest(this.teamId, {
+      to_user_id: toUserId,
+      amount: amount
+    }).subscribe(
+      (response) => {
+        this.loadSettlementRequests(); // Reload settlement requests
+        this.loadSummaries(); // Reload settlements to reflect any changes
+        console.log('Settlement request created successfully:', response);
+        // Clear any previous errors
+        this.error = '';
+      },
+      (error) => {
+        console.error('Settlement request failed:', error);
+        // Provide user-friendly error messages
+        if (error.response?.data?.detail) {
+          const detail = error.response.data.detail;
+          if (detail.includes('pending settlement request already exists')) {
+            this.error = 'A settlement request is already pending with this user. Please wait for them to respond or check your pending requests.';
+          } else {
+            this.error = detail;
+          }
+        } else {
+          this.error = getErrorMessage(error);
+        }
+      }
+    );
+  }
+
+  approveSettlement(settlementId: string): void {
+    this.settlementService.approveSettlement(settlementId).subscribe(
+      (response) => {
+        this.loadSettlementRequests(); // Reload settlement requests
+        this.loadSummaries(); // Reload balances and settlements
+        this.loadBudgetData(); // Reload budget data since balances changed
+        // Show success message could be added here
+      },
+      (error) => {
+        this.error = getErrorMessage(error);
       }
     );
   }

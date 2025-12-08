@@ -21,6 +21,43 @@ export interface TeamMember {
   team_id: string;
   user_id: string;
   initial_budget: number;
+  created_at: string;
+  modified_at: string;
+  user_name: string;
+  user_email: string;
+}
+
+export interface BudgetStatus {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  initial_budget: number;
+  current_balance: number;
+  remaining_budget: number;
+  total_spent: number;
+  budget_utilization_percentage: number;
+  is_over_budget: boolean;
+  available_to_pay: boolean;
+}
+
+export interface BudgetInsights {
+  team_summary: {
+    total_initial_budget: number;
+    total_remaining_budget: number;
+    total_spent: number;
+    budget_utilization_percentage: number;
+  };
+  members_over_budget: number;
+  members_under_budget: number;
+  recommendations: string[];
+  member_details: BudgetStatus[];
+}
+
+export interface PayerSuggestion {
+  suggested_payer: BudgetStatus;
+  reason: string;
+  confidence_score: number;
+  alternative_payers: BudgetStatus[];
 }
 
 export interface Expense {

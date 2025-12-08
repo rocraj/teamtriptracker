@@ -18,6 +18,7 @@ from app.services.team import TeamService
 from app.services.auth import AuthService
 from app.services.email import EmailService
 from app.services.invitation import InvitationService
+from app.services.budget import BudgetService
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -31,9 +32,7 @@ def create_team(
     """Create a new team and add creator as default member."""
     team = TeamService.create_team(session, team_data.name, user_id, team_data.trip_budget)
     
-    # Add creator as team member
-    TeamService.add_team_member(session, str(team.id), user_id)
-    
+    # Creator is already added as team member in create_team method
     return team
 
 
@@ -187,9 +186,19 @@ def add_member(
             detail="User not found"
         )
     
-    # Add user to team
+    # Add user to team with appropriate budget
+    # Get team details to determine budget allocation
+    team = TeamService.get_team(session, team_id)
+    current_member_count = len(members)
+    new_member_count = current_member_count + 1
+    
+    # Calculate fair budget share (team budget divided by new total members)
+    initial_budget = 0.0
+    if team and team.trip_budget:
+        initial_budget = team.trip_budget / new_member_count
+    
     added_member = TeamService.add_team_member(
-        session, team_id, str(member_data.user_id)
+        session, team_id, str(member_data.user_id), initial_budget
     )
     
     return added_member
@@ -235,7 +244,9 @@ def get_team_members(
             detail="You are not a member of this team"
         )
     
-    return members
+    # Get enriched member data with user details
+    enriched_members = TeamService.get_team_members_enriched(session, team_id)
+    return enriched_members
 
 
 @router.post("/{team_id}/send-invites", response_model=BulkInvitationResult)
@@ -276,10 +287,14 @@ def send_team_invitations(
     invitation_links_list = []
     tokens_list = []
     invitations_to_store = []
+    existing_users_added = []
+    already_members = []
+    invalid_emails = []
     
     for email in request.emails:
         # Validate email format
         if not email or "@" not in email:
+            invalid_emails.append(email)
             continue
         
         # Check if user already exists in the system
@@ -288,23 +303,42 @@ def send_team_invitations(
             # User already exists, check if already a team member
             user_uuid_check = UUID(str(existing_user.id)) if not isinstance(existing_user.id, UUID) else existing_user.id
             if any(m.user_id == user_uuid_check for m in members):
+                already_members.append({"email": email, "name": existing_user.name})
                 continue  # Skip, already a member
             else:
                 # Add user directly to team
-                TeamService.add_team_member(session, team_id, str(existing_user.id))
+                try:
+                    TeamService.add_team_member(session, team_id, str(existing_user.id))
+                    existing_users_added.append({"email": email, "name": existing_user.name, "user_id": str(existing_user.id)})
+                    
+                    # Send notification email to existing user about being added to team
+                    EmailService.send_team_addition_notification(
+                        recipient_email=email,
+                        recipient_name=existing_user.name,
+                        team_name=team.name,
+                        inviter_name=inviter.name if inviter else "Team Admin"
+                    )
+                except Exception as e:
+                    print(f"Error adding existing user {email} to team: {e}")
+                    # Fall back to sending invitation
+                    pass
                 continue
         
         # Create invitation for new user
-        token, invitation = InvitationService.create_invitation_token(
-            team_id, email, user_id
-        )
-        
-        invitations_to_store.append(invitation)
-        tokens_list.append(token)
-        
-        # Build invitation link
-        invitation_link = f"{settings.FRONTEND_URL}/accept-invite/{token}"
-        invitation_links_list.append(invitation_link)
+        try:
+            token, invitation = InvitationService.create_invitation_token(
+                team_id, email, user_id
+            )
+            
+            invitations_to_store.append(invitation)
+            tokens_list.append(token)
+            
+            # Build invitation link
+            invitation_link = f"{settings.FRONTEND_URL}/accept-invite/{token}"
+            invitation_links_list.append(invitation_link)
+        except Exception as e:
+            print(f"Error creating invitation for {email}: {e}")
+            invalid_emails.append(email)
     
     # Store invitations in database
     for invitation in invitations_to_store:
@@ -328,11 +362,20 @@ def send_team_invitations(
             "details": []
         }
     
+    # Prepare detailed response
+    total_processed = len(request.emails)
+    
     return BulkInvitationResult(
-        successful=email_results["successful"],
-        failed=email_results["failed"],
-        message=f"Successfully sent {email_results['successful']} invitations",
-        details=email_results["details"]
+        successful=email_results["successful"] + len(existing_users_added),
+        failed=email_results["failed"] + len(invalid_emails),
+        message=f"Processed {total_processed} invitations: {len(existing_users_added)} added directly, {email_results['successful']} invitations sent, {len(already_members)} already members, {len(invalid_emails)} invalid",
+        details=email_results["details"] + [
+            f"{user['email']}: Added directly to team" for user in existing_users_added
+        ] + [
+            f"{user['email']}: Already a team member" for user in already_members
+        ] + [
+            f"{email}: Invalid email or user not found" for email in invalid_emails
+        ]
     )
 
 
@@ -486,3 +529,151 @@ def get_invitation_info(
         "expires_at": invitation.expires_at,
         "is_expired": invitation.expires_at < datetime.utcnow()
     }
+
+
+# Budget Management Endpoints
+@router.get("/{team_id}/budget-status")
+def get_budget_status(
+    team_id: str,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get budget status for all team members."""
+    # Verify user is a team member
+    user_uuid = UUID(user_id)
+    members = TeamService.get_team_members(session, team_id)
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    budget_status = BudgetService.get_member_budget_status(session, team_id)
+    return {"budget_status": budget_status}
+
+
+@router.get("/{team_id}/budget-insights")
+def get_budget_insights(
+    team_id: str,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get budget insights and recommendations for the team."""
+    # Verify user is a team member
+    user_uuid = UUID(user_id)
+    members = TeamService.get_team_members(session, team_id)
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    insights = BudgetService.get_budget_insights(session, team_id)
+    return insights
+
+
+@router.post("/{team_id}/suggest-payer")
+def suggest_optimal_payer(
+    team_id: str,
+    request: dict,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Suggest the optimal payer for an expense."""
+    # Verify user is a team member
+    user_uuid = UUID(user_id)
+    members = TeamService.get_team_members(session, team_id)
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    amount = request.get("amount", 0)
+    if amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than 0"
+        )
+    
+    suggestion = BudgetService.suggest_optimal_payer(session, team_id, amount)
+    
+    if not suggestion:
+        return {
+            "suggestion": None,
+            "message": "No team members have sufficient budget for this expense"
+        }
+    
+    return {"suggestion": suggestion}
+
+
+@router.put("/{team_id}/members/{member_user_id}/budget")
+def update_member_budget(
+    team_id: str,
+    member_user_id: str,
+    request: dict,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Update a team member's budget."""
+    # Verify user is a team member
+    user_uuid = UUID(user_id)
+    members = TeamService.get_team_members(session, team_id)
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    budget = request.get("budget", 0)
+    if budget < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Budget cannot be negative"
+        )
+    
+    success = BudgetService.update_member_budget(session, team_id, member_user_id, budget)
+    return {"success": success}
+
+
+@router.post("/{team_id}/recalculate-budgets")
+def recalculate_budgets_equally(
+    team_id: str,
+    session: Session = Depends(get_session),
+    user_id: str = Depends(get_current_user_id)
+):
+    """Recalculate budgets equally among all team members."""
+    # Verify user is a team member
+    user_uuid = UUID(user_id)
+    members = TeamService.get_team_members(session, team_id)
+    if not any(m.user_id == user_uuid for m in members):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team"
+        )
+    
+    # Get team trip budget
+    team = TeamService.get_team(session, team_id)
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found"
+        )
+    
+    # Calculate equal budget per member
+    member_count = len(members)
+    if member_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot recalculate budgets for team with no members"
+        )
+    
+    equal_budget = team.trip_budget / member_count
+    
+    # Update all member budgets
+    success_count = 0
+    for member in members:
+        if BudgetService.update_member_budget(session, team_id, str(member.user_id), equal_budget):
+            success_count += 1
+    
+    return {"success": success_count == member_count}

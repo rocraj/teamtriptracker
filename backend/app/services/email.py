@@ -165,3 +165,166 @@ TeamTripTracker - Making group expenses simple
                 })
         
         return results
+    
+    @staticmethod
+    def send_team_addition_notification(
+        recipient_email: str,
+        recipient_name: str,
+        team_name: str,
+        inviter_name: str
+    ) -> bool:
+        """Send notification email to existing user who was added directly to a team.
+        
+        Args:
+            recipient_email: Email address of the user
+            recipient_name: Name of the user
+            team_name: Name of the team they were added to
+            inviter_name: Name of the person who added them
+            
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        settings = get_settings()
+        
+        # Validate SMTP settings
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            logger.error("SMTP credentials not configured")
+            return False
+        
+        try:
+            # Create message
+            message = MIMEMultipart("alternative")
+            message["Subject"] = f"Added to team {team_name} on TeamTripTracker"
+            message["From"] = settings.SMTP_USER
+            message["To"] = recipient_email
+            
+            # HTML email body
+            html_body = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #2c3e50;">You've been added to a team!</h2>
+                        <p>Hi {recipient_name},</p>
+                        <p><strong>{inviter_name}</strong> has added you to the team <strong>{team_name}</strong> on TeamTripTracker.</p>
+                        
+                        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #27ae60;">
+                            <p style="margin: 0;"><strong>Great news!</strong> Since you already have an account, you can start collaborating with your team immediately.</p>
+                        </div>
+                        
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                            <p>Visit your dashboard to:</p>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>View and add expenses</li>
+                                <li>Track team spending</li>
+                                <li>Manage settlements</li>
+                            </ul>
+                            <a href="{settings.FRONTEND_URL}/dashboard" style="background-color: #27ae60; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin-top: 10px;">Go to Dashboard</a>
+                        </div>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                        <p style="font-size: 12px; color: #666;">
+                            If you have any questions about this team or didn't expect to be added, please contact {inviter_name}.
+                        </p>
+                        <p style="font-size: 12px; color: #666;">
+                            TeamTripTracker - Making group expenses simple
+                        </p>
+                    </div>
+                </body>
+            </html>
+            """
+            
+            # Text fallback
+            text_body = f"""
+Hi {recipient_name},
+
+{inviter_name} has added you to the team {team_name} on TeamTripTracker.
+
+Since you already have an account, you can start collaborating with your team immediately!
+
+Visit your dashboard at {settings.FRONTEND_URL}/dashboard to:
+- View and add expenses
+- Track team spending  
+- Manage settlements
+
+If you have any questions, please contact {inviter_name}.
+
+TeamTripTracker - Making group expenses simple
+            """
+            
+            # Attach both HTML and text versions
+            part1 = MIMEText(text_body, "plain")
+            part2 = MIMEText(html_body, "html")
+            message.attach(part1)
+            message.attach(part2)
+            
+            # Send email
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                server.starttls()
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.sendmail(settings.SMTP_USER, recipient_email, message.as_string())
+            
+            logger.info(f"Team addition notification sent to {recipient_email}")
+            return True
+            
+        except smtplib.SMTPAuthenticationError:
+            logger.error("SMTP authentication failed - check credentials")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error occurred: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Error sending notification email: {str(e)}")
+            return False
+    
+    @staticmethod
+    def send_email(recipient_email: str, subject: str, body: str, is_html: bool = False) -> bool:
+        """Send a generic email.
+        
+        Args:
+            recipient_email: Email address of the recipient
+            subject: Email subject line
+            body: Email body content
+            is_html: Whether the body contains HTML content
+            
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        settings = get_settings()
+        
+        # Validate SMTP settings
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            logger.error("SMTP credentials not configured")
+            return False
+        
+        try:
+            # Create message
+            message = MIMEMultipart("alternative")
+            message["Subject"] = subject
+            message["From"] = settings.SMTP_USER
+            message["To"] = recipient_email
+            
+            # Add body content
+            if is_html:
+                part = MIMEText(body, "html")
+            else:
+                part = MIMEText(body, "plain")
+            message.attach(part)
+            
+            # Send email
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+                server.starttls()
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.sendmail(settings.SMTP_USER, recipient_email, message.as_string())
+            
+            logger.info(f"Email sent to {recipient_email}: {subject}")
+            return True
+            
+        except smtplib.SMTPAuthenticationError:
+            logger.error("SMTP authentication failed - check credentials")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error occurred: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Error sending email: {str(e)}")
+            return False

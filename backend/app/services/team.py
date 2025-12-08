@@ -12,7 +12,7 @@ class TeamService:
     
     @staticmethod
     def create_team(session: Session, name: str, created_by_id: str, trip_budget: Optional[float] = None) -> Team:
-        """Create a new team."""
+        """Create a new team and automatically add creator as member."""
         # Ensure created_by_id is a UUID
         if isinstance(created_by_id, str):
             created_by_id = UUID(created_by_id)
@@ -28,6 +28,11 @@ class TeamService:
         session.add(team)
         session.commit()
         session.refresh(team)
+        
+        # Automatically add creator as team member with full budget initially
+        initial_budget = trip_budget if trip_budget else 0.0
+        TeamService.add_team_member(session, str(team.id), str(created_by_id), initial_budget, auto_recalculate=False)
+        
         return team
     
     @staticmethod
@@ -65,7 +70,8 @@ class TeamService:
         session: Session,
         team_id: str,
         user_id: str,
-        initial_budget: float = 0.0
+        initial_budget: float = 0.0,
+        auto_recalculate: bool = True
     ) -> TeamMember:
         """Add a member to a team."""
         # Ensure IDs are UUIDs
@@ -94,6 +100,11 @@ class TeamService:
         session.add(member)
         session.commit()
         session.refresh(member)
+        
+        # Auto-recalculate budgets equally if requested and team has trip_budget
+        if auto_recalculate:
+            TeamService.recalculate_equal_budgets(session, str(team_id))
+        
         return member
     
     @staticmethod
@@ -105,6 +116,34 @@ class TeamService:
         return session.exec(
             select(TeamMember).where(TeamMember.team_id == team_id)
         ).all()
+    
+    @staticmethod
+    def get_team_members_enriched(session: Session, team_id: str) -> List[dict]:
+        """Get all members of a team with user details."""
+        from app.models.schemas import User
+        
+        # Ensure team_id is a UUID
+        if isinstance(team_id, str):
+            team_id = UUID(team_id)
+            
+        # Get team members with user details via join
+        query = select(TeamMember, User).join(User, TeamMember.user_id == User.id).where(TeamMember.team_id == team_id)
+        results = session.exec(query).all()
+        
+        enriched_members = []
+        for team_member, user in results:
+            enriched_members.append({
+                "id": team_member.id,
+                "team_id": team_member.team_id, 
+                "user_id": team_member.user_id,
+                "initial_budget": team_member.initial_budget,
+                "created_at": team_member.created_at,
+                "modified_at": team_member.modified_at,
+                "user_name": user.name,
+                "user_email": user.email
+            })
+            
+        return enriched_members
     
     @staticmethod
     def set_member_budget(
@@ -134,7 +173,71 @@ class TeamService:
         session.add(member)
         session.commit()
         session.refresh(member)
+        
+        # Auto-recalculate budgets equally if requested and team has trip_budget
+        if auto_recalculate:
+            TeamService.recalculate_equal_budgets(session, str(team_id))
+        
         return member
+    
+    @staticmethod
+    def recalculate_equal_budgets(session: Session, team_id: str) -> bool:
+        """Recalculate budgets equally among all team members."""
+        try:
+            # Get team info
+            team = TeamService.get_team(session, team_id)
+            if not team or not team.trip_budget:
+                return False
+            
+            # Get all team members
+            members = TeamService.get_team_members(session, team_id)
+            if not members:
+                return False
+            
+            # Calculate equal split
+            equal_budget = team.trip_budget / len(members)
+            
+            # Update all members
+            for member in members:
+                member.initial_budget = equal_budget
+                member.modified_at = datetime.utcnow()
+                session.add(member)
+            
+            session.commit()
+            return True
+            
+        except Exception:
+            session.rollback()
+            return False
+    
+    @staticmethod
+    def update_member_budget(session: Session, team_id: str, user_id: str, new_budget: float) -> bool:
+        """Update a specific member's budget."""
+        try:
+            if isinstance(team_id, str):
+                team_id = UUID(team_id)
+            if isinstance(user_id, str):
+                user_id = UUID(user_id)
+            
+            member = session.exec(
+                select(TeamMember).where(
+                    (TeamMember.team_id == team_id) &
+                    (TeamMember.user_id == user_id)
+                )
+            ).first()
+            
+            if not member:
+                return False
+            
+            member.initial_budget = new_budget
+            member.modified_at = datetime.utcnow()
+            session.add(member)
+            session.commit()
+            return True
+            
+        except Exception:
+            session.rollback()
+            return False
     
     @staticmethod
     def update_team(
