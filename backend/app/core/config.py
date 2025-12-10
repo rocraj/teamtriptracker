@@ -29,7 +29,12 @@ class Settings(BaseSettings):
     BACKEND_URL: str = "http://localhost:8000"
     
     # CORS
-    CORS_ORIGINS: list = ["*"]
+    CORS_ORIGINS: list = [
+        "http://localhost:4200",
+        "https://teamtriptracker.web.app",
+        "https://teamsplit.psynik.com",
+        "https://teamsplit-api.psynik.com"
+    ]
     
     class Config:
         env_file = ".env"

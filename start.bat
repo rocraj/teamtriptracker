@@ -61,8 +61,8 @@ echo.
 echo ✅ Both servers are starting up in separate windows...
 echo.
 echo 📱 Frontend: http://localhost:4200
-echo 🔧 Backend:  http://localhost:8000
-echo 📚 API Docs: http://localhost:8000/docs
+echo 🔧 Backend:  http://65.1.94.243:8000
+echo 📚 API Docs: http://65.1.94.243:8000/docs
 echo.
 echo Close the terminal windows to stop the servers
 echo.

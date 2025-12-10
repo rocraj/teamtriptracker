@@ -43,6 +43,6 @@ npm start
 
 ## URLs:
 - 📱 **Frontend App**: http://localhost:4200
-- 🔧 **Backend API**: http://localhost:8000
-- 📚 **API Documentation**: http://localhost:8000/docs
-- 🔍 **ReDoc Documentation**: http://localhost:8000/redoc
+- 🔧 **Backend API**: http://65.1.94.243:8000
+- 📚 **API Documentation**: http://65.1.94.243:8000/docs
+- 🔍 **ReDoc Documentation**: http://65.1.94.243:8000/redoc
